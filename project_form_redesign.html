@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>项目表单重新设计 - 草图</title>
+    <link rel="stylesheet" href="https://unpkg.com/element-plus/dist/index.css">
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://unpkg.com/element-plus/dist/index.full.js"></script>
+    <style>
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f7fa;
+        }
+        .design-container {
+            max-width: 1000px;
+            margin: 20px auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+            padding: 24px;
+        }
+        .design-title {
+            text-align: center;
+            margin-bottom: 24px;
+            color: #303133;
+            border-bottom: 2px solid #409EFF;
+            padding-bottom: 12px;
+        }
+        .form-layout {
+            display: grid;
+            grid-template-columns: 1fr 300px;
+            gap: 24px;
+            height: 500px;
+        }
+        .left-column {
+            display: grid;
+            grid-template-rows: auto auto 1fr;
+            gap: 16px;
+        }
+        .right-column {
+            border-left: 1px solid #EBEEF5;
+            padding-left: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        .form-group {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 6px;
+            padding: 16px;
+        }
+        .form-group h4 {
+            margin: 0 0 12px 0;
+            color: #409EFF;
+            font-size: 14px;
+            font-weight: 600;
+            border-bottom: 1px solid #e9ecef;
+            padding-bottom: 8px;
+        }
+        .form-row {
+            display: flex;
+            gap: 16px;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        .form-row:last-child {
+            margin-bottom: 0;
+        }
+        .form-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .form-label {
+            font-size: 13px;
+            color: #606266;
+            white-space: nowrap;
+            min-width: 70px;
+        }
+        .form-input {
+            background: white;
+            border: 1px solid #dcdfe6;
+            border-radius: 4px;
+            padding: 6px 12px;
+            font-size: 13px;
+            width: 100px;
+        }
+        .form-input.wide {
+            width: 200px;
+        }
+        .upload-area {
+            border: 2px dashed #d9d9d9;
+            border-radius: 6px;
+            padding: 20px;
+            text-align: center;
+            background: #fafafa;
+            transition: all 0.3s;
+        }
+        .upload-area:hover {
+            border-color: #409EFF;
+            background: #f0f9ff;
+        }
+        .upload-btn {
+            background: #409EFF;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+        .image-preview {
+            width: 100%;
+            height: 150px;
+            border: 1px solid #dcdfe6;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #f8f9fa;
+            color: #909399;
+            font-size: 12px;
+        }
+        .color-section {
+            flex: 1;
+        }
+        .color-options {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .color-preview {
+            height: 80px;
+            background: #f8f9fa;
+            border: 1px solid #dcdfe6;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #909399;
+            font-size: 12px;
+        }
+        .radio-option {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+        }
+        .stats-info {
+            background: #e8f4fd;
+            border: 1px solid #b3d8ff;
+            border-radius: 4px;
+            padding: 12px;
+            font-size: 12px;
+            color: #0066cc;
+        }
+        .annotation {
+            position: absolute;
+            background: #ff4757;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: bold;
+            pointer-events: none;
+        }
+        .annotation::after {
+            content: '';
+            position: absolute;
+            bottom: -4px;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 4px solid transparent;
+            border-top-color: #ff4757;
+        }
+    </style>
+</head>
+<body>
+    <div class="design-container">
+        <h2 class="design-title">🎨 项目表单重新设计草图</h2>
+        
+        <div class="form-layout">
+            <!-- 左列：主要表单内容 -->
+            <div class="left-column">
+                <!-- 项目基本信息 -->
+                <div class="form-group">
+                    <h4>📋 项目信息</h4>
+                    <div class="form-row">
+                        <div class="form-item">
+                            <span class="form-label">项目名称:</span>
+                            <input class="form-input wide" placeholder="自动生成时间戳名称" />
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 网格设置 -->
+                <div class="form-group">
+                    <h4>🔲 网格设置</h4>
+                    <div class="form-row">
+                        <div class="form-item">
+                            <span class="form-label">网格长度:</span>
+                            <input class="form-input" value="50" />
+                            <span style="font-size: 12px; color: #909399;">格</span>
+                        </div>
+                        <div class="form-item">
+                            <span class="form-label">网格宽度:</span>
+                            <input class="form-input" value="28" disabled />
+                            <span style="font-size: 12px; color: #909399;">格 (自动)</span>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-item">
+                            <span class="form-label">格子边长:</span>
+                            <input class="form-input" value="0.5" />
+                            <span style="font-size: 12px; color: #909399;">cm</span>
+                        </div>
+                        <div class="stats-info" style="margin-left: auto; max-width: 200px;">
+                            💡 实际尺寸: 25×14 cm<br>
+                            📐 比例: 16:9
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 颜色设置 -->
+                <div class="form-group color-section">
+                    <h4>🎨 颜色配置</h4>
+                    <div class="color-options">
+                        <div class="radio-option">
+                            <input type="radio" name="colorType" checked />
+                            <span>指定颜色数量:</span>
+                            <input class="form-input" value="20" style="width: 60px;" />
+                            <span style="font-size: 12px; color: #909399;">个</span>
+                        </div>
+                        <div class="radio-option">
+                            <input type="radio" name="colorType" />
+                            <span>选择颜色组:</span>
+                            <select class="form-input" style="width: 120px;">
+                                <option>基础色组</option>
+                                <option>暖色组</option>
+                                <option>冷色组</option>
+                            </select>
+                        </div>
+                        <div class="color-preview">
+                            颜色预览区域 (20个颜色)
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 右列：图片上传和预览 -->
+            <div class="right-column" style="position: relative;">
+                <div class="annotation" style="top: -30px; right: 50px;">紧凑上传按钮</div>
+                
+                <div class="form-group">
+                    <h4>📸 图片导入</h4>
+                    <div class="upload-area">
+                        <div style="margin-bottom: 8px; color: #909399; font-size: 12px;">
+                            支持 JPG/PNG 格式
+                        </div>
+                        <button class="upload-btn">选择图片</button>
+                    </div>
+                </div>
+
+                <div class="form-group" style="flex: 1;">
+                    <h4>🖼️ 图片预览</h4>
+                    <div class="image-preview">
+                        [图片预览区域]<br>
+                        显示尺寸、比例等信息
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <h4>📊 项目统计</h4>
+                    <div style="font-size: 12px; color: #606266; line-height: 1.5;">
+                        <div>🔲 总格子数: 1,400 个</div>
+                        <div>🎨 使用颜色: 20 种</div>
+                        <div>📏 成品尺寸: 25×14 cm</div>
+                        <div>⏱️ 预估工时: 28 小时</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #EBEEF5;">
+            <h3 style="color: #303133; margin-bottom: 12px;">💡 设计要点:</h3>
+            <ul style="color: #606266; font-size: 14px; line-height: 1.6;">
+                <li><strong>两列布局:</strong> 左列放表单控件，右列放图片和统计信息</li>
+                <li><strong>紧凑上传:</strong> 用简单按钮替换大的拖拽区域</li>
+                <li><strong>信息利用:</strong> 右列显示图片预览和项目统计，充分利用空间</li>
+                <li><strong>无滚动:</strong> 高度控制在500px内，保证一屏显示完整</li>
+                <li><strong>分组清晰:</strong> 用卡片和标题分组，逻辑清晰</li>
+                <li><strong>实时反馈:</strong> 显示计算结果和统计信息</li>
+            </ul>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,75 @@
+{
+  "psd": "/Users/suconnect/Desktop/code/electron-ditan/数据/DT4529 印刷 80x115cm-130x185格 拷贝.psd",
+  "source": "/Users/suconnect/Desktop/code/electron-ditan/数据/_analysis/lang_xml_extract/Original.jpg",
+  "output": "/Users/suconnect/Desktop/code/electron-ditan/数据/_analysis/psd_tools_swap_test_v5.png",
+  "pyvips": {
+    "available": true,
+    "version": "3.1.1"
+  },
+  "effect_layer_index": 1,
+  "effect_layer_name": "图层 0",
+  "fit": "stretch",
+  "source_size": [
+    609,
+    738
+  ],
+  "target_bbox": [
+    0,
+    0,
+    2093,
+    3009
+  ],
+  "placed_size": [
+    2093,
+    3009
+  ],
+  "effects": [
+    {
+      "type": "PatternOverlay",
+      "enabled": true,
+      "opacity": 55.0,
+      "blend_mode": "b'linearLight'",
+      "pattern_name": "\u0000",
+      "pattern_id": "",
+      "scale": 100.0
+    }
+  ],
+  "comparisons": [
+    {
+      "path": "数据/_analysis/psd_composite.png",
+      "mean_abs_diff": [
+        17.41,
+        15.822,
+        16.944
+      ],
+      "render_mean_rgb": [
+        112.517,
+        95.116,
+        82.741
+      ],
+      "reference_mean_rgb": [
+        111.623,
+        96.89,
+        79.332
+      ]
+    },
+    {
+      "path": "/Users/suconnect/Downloads/lang_80x115cm-定义在ps里面_merged_20260429083327.png",
+      "mean_abs_diff": [
+        3.384,
+        3.935,
+        4.237
+      ],
+      "render_mean_rgb": [
+        112.517,
+        95.116,
+        82.741
+      ],
+      "reference_mean_rgb": [
+        109.98,
+        92.023,
+        79.335
+      ]
+    }
+  ]
+}

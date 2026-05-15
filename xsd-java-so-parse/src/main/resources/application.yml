@@ -1,0 +1,14 @@
+spring:
+  application:
+    name: xsd-convert
+  servlet:
+    multipart:
+      max-file-size: 100MB
+      max-request-size: 100MB
+server:
+  port: 8086
+
+xsd:
+  parser:
+    native-library: /usr/local/xsd-parser-linux.so
+    scale: 16

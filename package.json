@@ -1,0 +1,119 @@
+{
+  "name": "easystitch-electron",
+  "version": "1.0.6",
+  "description": "EasyStitch Electron Frontend",
+  "main": "main.js",
+  "scripts": {
+    "prepare:photopea": "node scripts/prepare_photopea_bundle.js",
+    "start": "npm run prepare:photopea && electron .",
+    "dev": "npm run prepare:photopea && npm run build:vue && electron . --dev",
+    "dev:vue": "vite",
+    "build:vue": "vite build",
+    "build": "npm run prepare:photopea && npm run build:vue && electron-builder",
+    "pack": "npm run prepare:photopea && npm run build:vue && electron-builder --dir",
+    "dist": "npm run prepare:photopea && npm run build:vue && electron-builder --publish=never",
+    "dist:mac": "npm run prepare:photopea && npm run build:vue && electron-builder --mac dmg zip",
+    "dist:win": "npm run prepare:photopea && npm run build:vue && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win nsis zip",
+    "dist:win:all": "npm run prepare:photopea && npm run build:vue && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win nsis zip --x64 --ia32 --arm64",
+    "dist:win:x64": "npm run prepare:photopea && npm run build:vue && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win nsis zip --x64",
+    "dist:win:ia32": "npm run prepare:photopea && npm run build:vue && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win nsis zip --ia32",
+    "dist:win:arm64": "npm run prepare:photopea && npm run build:vue && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win nsis zip --arm64",
+    "dist:all": "npm run prepare:photopea && npm run build:vue && electron-builder -mwl",
+    "smoke:photopea": "npm run prepare:photopea && electron ./scripts/photopea_render_smoke.js"
+  },
+  "author": "Your Name",
+  "license": "MIT",
+  "dependencies": {
+    "@electron/remote": "^2.1.0",
+    "@fontsource/noto-sans-sc": "^5.2.9",
+    "archiver": "^7.0.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^6.0.0",
+    "ag-psd": "^28.2.2",
+    "cross-env": "^7.0.3",
+    "electron": "^27.0.0",
+    "electron-builder": "^24.0.0",
+    "element-plus": "^2.11.1",
+    "fabric": "^6.7.1",
+    "jspdf": "^3.0.2",
+    "jszip": "^3.10.1",
+    "mitt": "^3.0.1",
+    "uuid": "^11.1.0",
+    "vite": "^7.0.3",
+    "vue": "^3.5.17",
+    "vue-i18n": "11.1.10",
+    "vue3-colorpicker": "^2.3.0"
+  },
+  "build": {
+    "appId": "com.example.easystitch",
+    "productName": "EasyStitch",
+    "directories": {
+      "output": "build",
+      "buildResources": "build"
+    },
+    "files": [
+      "dist/**/*",
+      "main.js",
+      "package.json",
+      "assets/**/*",
+      "scripts/**/*",
+      "vendor/photopea-app/**/*"
+    ],
+    "asar": true,
+    "asarUnpack": [
+      "scripts/**/*",
+      "vendor/photopea-app/**/*"
+    ],
+    "mac": {
+      "category": "public.app-category.graphics-design",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "arm64"
+          ]
+        }
+      ],
+      "artifactName": "${productName}-${version}-mac-${arch}.${ext}"
+    },
+    "win": {
+      "signAndEditExecutable": false,
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64", "ia32", "arm64"]
+        },
+        {
+          "target": "zip",
+          "arch": ["x64", "ia32", "arm64"]
+        }
+      ],
+      "artifactName": "${productName}-${version}-win-${arch}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowElevation": true,
+      "allowToChangeInstallationDirectory": true,
+      "include": "electron/installer.nsh",
+      "artifactName": "${productName}-${version}-setup-${arch}.${ext}",
+      "useZip": true,
+      "differentialPackage": false,
+      "deleteAppDataOnUninstall": false,
+      "runAfterFinish": true,
+      "createDesktopShortcut": "always",
+      "createStartMenuShortcut": true,
+      "installerLanguages": [
+        "zh_CN",
+        "en_US"
+      ]
+    }
+  }
+}

@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>钻石图编辑器测试</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        #app {
+            height: 100vh;
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <diamond-painting-demo></diamond-painting-demo>
+    </div>
+    
+    <script type="module">
+        import { createApp } from '/node_modules/vue/dist/vue.esm-bundler.js'
+        import DiamondPaintingDemo from './src/components/DiamondPaintingDemo.vue'
+        
+        const app = createApp({
+            components: {
+                DiamondPaintingDemo
+            }
+        })
+        
+        app.mount('#app')
+    </script>
+</body>
+</html>

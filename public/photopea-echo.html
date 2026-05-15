@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Photopea Echo</title>
+  </head>
+  <body>
+    <script>
+      const onePixelPngBase64 =
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4//8/AwAI/AL+XcX4WQAAAABJRU5ErkJggg=='
+
+      function base64ToArrayBuffer(base64) {
+        const binary = atob(base64)
+        const bytes = new Uint8Array(binary.length)
+        for (let index = 0; index < binary.length; index += 1) {
+          bytes[index] = binary.charCodeAt(index)
+        }
+        return bytes.buffer
+      }
+
+      function postDone() {
+        window.parent.postMessage('done', '*')
+      }
+
+      function tryEchoToken(script) {
+        const match = String(script || '').match(/app\.echoToOE\(([\s\S]+?)\)\s*;?\s*$/)
+        if (!match) return false
+        try {
+          const value = JSON.parse(match[1])
+          window.parent.postMessage(value, '*')
+          postDone()
+          return true
+        } catch (_) {
+          return false
+        }
+      }
+
+      window.addEventListener('message', event => {
+        const data = event.data
+        if (data instanceof ArrayBuffer || ArrayBuffer.isView(data)) {
+          postDone()
+          return
+        }
+        if (typeof data === 'string') {
+          if (tryEchoToken(data)) return
+          if (data.includes('saveToOE(')) {
+            window.parent.postMessage(base64ToArrayBuffer(onePixelPngBase64), '*')
+            postDone()
+            return
+          }
+          postDone()
+        }
+      })
+
+      window.addEventListener('load', () => {
+        postDone()
+      })
+    </script>
+  </body>
+</html>

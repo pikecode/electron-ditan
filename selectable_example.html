@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DiamondCanvas Selectable 交互示例</title>
+    <script src="https://unpkg.com/fabric@5.3.0/dist/fabric.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            display: flex;
+            gap: 20px;
+        }
+        .controls {
+            width: 300px;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            height: fit-content;
+        }
+        .canvas-wrapper {
+            flex: 1;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        canvas {
+            border: 2px solid #333;
+            cursor: pointer;
+        }
+        .section {
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #eee;
+        }
+        .section:last-child {
+            border-bottom: none;
+        }
+        h3 {
+            margin-top: 0;
+            color: #333;
+        }
+        button {
+            background: #409EFF;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px 5px 5px 0;
+        }
+        button:hover {
+            background: #337ecc;
+        }
+        .info {
+            background: #f0f9ff;
+            border: 1px solid #0ea5e9;
+            border-radius: 4px;
+            padding: 10px;
+            margin: 10px 0;
+            font-size: 14px;
+        }
+        .log {
+            background: #1f2937;
+            color: #10b981;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+            margin-top: 10px;
+        }
+        input[type="number"] {
+            width: 60px;
+            padding: 4px;
+            margin: 0 5px;
+        }
+        label {
+            display: block;
+            margin: 5px 0;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <h1>DiamondCanvas Selectable 交互示例</h1>
+    
+    <div class="container">
+        <div class="controls">
+            <div class="section">
+                <h3>🎯 基本交互说明</h3>
+                <div class="info">
+                    <strong>单击：</strong>选中单元格 + 改变颜色<br>
+                    <strong>Ctrl/Cmd + 单击：</strong>多选<br>
+                    <strong>拖拽：</strong>框选多个单元格<br>
+                    <strong>Delete键：</strong>重置选中单元格<br>
+                    <strong>Escape键：</strong>取消选择
+                </div>
+            </div>
+
+            <div class="section">
+                <h3>🎨 颜色控制</h3>
+                <button onclick="setSelectedColor('#ff6b6b')">红色</button>
+                <button onclick="setSelectedColor('#4ecdc4')">青色</button>
+                <button onclick="setSelectedColor('#45b7d1')">蓝色</button>
+                <button onclick="setSelectedColor('#96ceb4')">绿色</button>
+                <button onclick="setSelectedColor('#ffeaa7')">黄色</button>
+                <button onclick="setSelectedColor('#dda0dd')">紫色</button>
+                <button onclick="clearSelected()">清除选中</button>
+            </div>
+
+            <div class="section">
+                <h3>🔧 选择操作</h3>
+                <button onclick="selectAll()">全选</button>
+                <button onclick="selectNone()">取消全选</button>
+                <button onclick="selectRandom()">随机选择10个</button>
+                <button onclick="selectRow()">选择第一行</button>
+                <button onclick="selectColumn()">选择第一列</button>
+            </div>
+
+            <div class="section">
+                <h3>📏 网格设置</h3>
+                <label>
+                    行数: <input type="number" id="rows" value="10" min="5" max="20" onchange="updateGrid()">
+                </label>
+                <label>
+                    列数: <input type="number" id="cols" value="12" min="5" max="20" onchange="updateGrid()">
+                </label>
+                <button onclick="resetGrid()">重置网格</button>
+            </div>
+
+            <div class="section">
+                <h3>📊 选择信息</h3>
+                <div id="selectionInfo">没有选中任何单元格</div>
+            </div>
+
+            <div class="section">
+                <h3>📝 操作日志</h3>
+                <div id="log" class="log"></div>
+            </div>
+        </div>
+
+        <div class="canvas-wrapper">
+            <h3>🎨 交互式网格画布</h3>
+            <canvas id="canvas" width="600" height="400"></canvas>
+        </div>
+    </div>
+
+    <script>
+        // 简化版的 DiamondCanvas 类
+        class SelectableGridCanvas {
+            constructor(canvasElement) {
+                this.canvas = new fabric.Canvas(canvasElement, {
+                    selection: true,  // 允许框选
+                    backgroundColor: '#f8f9fa'
+                });
+                
+                this.rows = 10;
+                this.cols = 12;
+                this.cellGrid = [];
+                this.defaultColor = 'rgba(255,255,255,0.8)';
+                this.gridColor = '#666';
+                
+                this.initEventListeners();
+                this.drawGrid();
+            }
+            
+            drawGrid() {
+                this.canvas.clear();
+                this.cellGrid = [];
+                
+                const canvasWidth = this.canvas.width;
+                const canvasHeight = this.canvas.height;
+                const cellWidth = canvasWidth / this.cols;
+                const cellHeight = canvasHeight / this.rows;
+                
+                for (let row = 0; row < this.rows; row++) {
+                    this.cellGrid[row] = [];
+                    
+                    for (let col = 0; col < this.cols; col++) {
+                        const rect = new fabric.Rect({
+                            left: col * cellWidth,
+                            top: row * cellHeight,
+                            width: cellWidth,
+                            height: cellHeight,
+                            fill: this.defaultColor,
+                            stroke: this.gridColor,
+                            strokeWidth: 1,
+                            selectable: true,     // 🔥 关键设置
+                            hasControls: false,   // 不显示调整控制点
+                            hasBorders: true,     // 显示选中边框
+                            hoverCursor: 'pointer',
+                            gridRow: row,
+                            gridCol: col
+                        });
+                        
+                        // 添加点击事件
+                        rect.on('mousedown', () => {
+                            this.onCellClick(row, col, rect);
+                        });
+                        
+                        this.cellGrid[row][col] = rect;
+                        this.canvas.add(rect);
+                    }
+                }
+                
+                this.canvas.renderAll();
+                this.log(`网格重新绘制: ${this.rows}行 × ${this.cols}列`);
+            }
+            
+            onCellClick(row, col, rect) {
+                // 随机选择一个颜色
+                const colors = ['#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4', '#ffeaa7', '#dda0dd'];
+                const randomColor = colors[Math.floor(Math.random() * colors.length)];
+                
+                rect.set('fill', randomColor);
+                this.canvas.renderAll();
+                
+                this.log(`点击单元格 (${row}, ${col}) - 颜色: ${randomColor}`);
+            }
+            
+            initEventListeners() {
+                // 监听选择事件
+                this.canvas.on('selection:created', (e) => {
+                    this.updateSelectionInfo(e.selected);
+                    this.log(`选中 ${e.selected.length} 个单元格`);
+                });
+                
+                this.canvas.on('selection:updated', (e) => {
+                    this.updateSelectionInfo(e.selected);
+                    this.log(`选择更新: ${e.selected.length} 个单元格`);
+                });
+                
+                this.canvas.on('selection:cleared', () => {
+                    this.updateSelectionInfo([]);
+                    this.log('取消选择');
+                });
+                
+                // 键盘事件
+                document.addEventListener('keydown', (e) => {
+                    if (e.key === 'Delete') {
+                        this.resetSelectedCells();
+                    } else if (e.key === 'Escape') {
+                        this.canvas.discardActiveObject();
+                        this.canvas.renderAll();
+                    }
+                });
+            }
+            
+            updateSelectionInfo(selected) {
+                const infoDiv = document.getElementById('selectionInfo');
+                if (selected.length === 0) {
+                    infoDiv.innerHTML = '没有选中任何单元格';
+                } else {
+                    let info = `选中 ${selected.length} 个单元格:<br>`;
+                    selected.forEach(obj => {
+                        info += `(${obj.gridRow}, ${obj.gridCol}) `;
+                    });
+                    infoDiv.innerHTML = info;
+                }
+            }
+            
+            // 公共方法
+            setSelectedColor(color) {
+                const activeObject = this.canvas.getActiveObject();
+                const activeObjects = this.canvas.getActiveObjects();
+                
+                if (activeObjects.length > 0) {
+                    activeObjects.forEach(obj => {
+                        obj.set('fill', color);
+                    });
+                    this.canvas.renderAll();
+                    this.log(`设置 ${activeObjects.length} 个单元格颜色为 ${color}`);
+                } else {
+                    this.log('没有选中的单元格');
+                }
+            }
+            
+            resetSelectedCells() {
+                const activeObjects = this.canvas.getActiveObjects();
+                if (activeObjects.length > 0) {
+                    activeObjects.forEach(obj => {
+                        obj.set('fill', this.defaultColor);
+                    });
+                    this.canvas.renderAll();
+                    this.log(`重置 ${activeObjects.length} 个单元格`);
+                }
+            }
+            
+            selectAll() {
+                const allObjects = this.canvas.getObjects();
+                const selection = new fabric.ActiveSelection(allObjects, {
+                    canvas: this.canvas,
+                });
+                this.canvas.setActiveObject(selection);
+                this.canvas.renderAll();
+                this.log('全选所有单元格');
+            }
+            
+            selectNone() {
+                this.canvas.discardActiveObject();
+                this.canvas.renderAll();
+                this.log('取消全选');
+            }
+            
+            selectRandom() {
+                const allObjects = this.canvas.getObjects();
+                const randomObjects = [];
+                
+                for (let i = 0; i < 10 && i < allObjects.length; i++) {
+                    const randomIndex = Math.floor(Math.random() * allObjects.length);
+                    if (!randomObjects.includes(allObjects[randomIndex])) {
+                        randomObjects.push(allObjects[randomIndex]);
+                    }
+                }
+                
+                if (randomObjects.length > 0) {
+                    const selection = new fabric.ActiveSelection(randomObjects, {
+                        canvas: this.canvas,
+                    });
+                    this.canvas.setActiveObject(selection);
+                    this.canvas.renderAll();
+                    this.log(`随机选择 ${randomObjects.length} 个单元格`);
+                }
+            }
+            
+            selectRow() {
+                const rowObjects = this.cellGrid[0] || [];
+                if (rowObjects.length > 0) {
+                    const selection = new fabric.ActiveSelection(rowObjects, {
+                        canvas: this.canvas,
+                    });
+                    this.canvas.setActiveObject(selection);
+                    this.canvas.renderAll();
+                    this.log('选择第一行');
+                }
+            }
+            
+            selectColumn() {
+                const colObjects = [];
+                for (let row = 0; row < this.rows; row++) {
+                    if (this.cellGrid[row] && this.cellGrid[row][0]) {
+                        colObjects.push(this.cellGrid[row][0]);
+                    }
+                }
+                
+                if (colObjects.length > 0) {
+                    const selection = new fabric.ActiveSelection(colObjects, {
+                        canvas: this.canvas,
+                    });
+                    this.canvas.setActiveObject(selection);
+                    this.canvas.renderAll();
+                    this.log('选择第一列');
+                }
+            }
+            
+            updateGridSize(rows, cols) {
+                this.rows = rows;
+                this.cols = cols;
+                this.drawGrid();
+            }
+            
+            log(message) {
+                const logDiv = document.getElementById('log');
+                const time = new Date().toLocaleTimeString();
+                logDiv.innerHTML += `[${time}] ${message}<br>`;
+                logDiv.scrollTop = logDiv.scrollHeight;
+            }
+        }
+        
+        // 初始化
+        let gridCanvas;
+        
+        window.onload = function() {
+            const canvas = document.getElementById('canvas');
+            gridCanvas = new SelectableGridCanvas(canvas);
+        };
+        
+        // 全局函数
+        function setSelectedColor(color) {
+            gridCanvas.setSelectedColor(color);
+        }
+        
+        function clearSelected() {
+            gridCanvas.resetSelectedCells();
+        }
+        
+        function selectAll() {
+            gridCanvas.selectAll();
+        }
+        
+        function selectNone() {
+            gridCanvas.selectNone();
+        }
+        
+        function selectRandom() {
+            gridCanvas.selectRandom();
+        }
+        
+        function selectRow() {
+            gridCanvas.selectRow();
+        }
+        
+        function selectColumn() {
+            gridCanvas.selectColumn();
+        }
+        
+        function updateGrid() {
+            const rows = parseInt(document.getElementById('rows').value);
+            const cols = parseInt(document.getElementById('cols').value);
+            gridCanvas.updateGridSize(rows, cols);
+        }
+        
+        function resetGrid() {
+            document.getElementById('rows').value = 10;
+            document.getElementById('cols').value = 12;
+            gridCanvas.updateGridSize(10, 12);
+        }
+    </script>
+</body>
+</html>

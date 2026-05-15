@@ -1,0 +1,69 @@
+{
+  "psd": "/Users/suconnect/Desktop/code/electron-ditan/数据/DT4529 印刷 80x115cm-130x185格 拷贝.psd",
+  "source": "/Users/suconnect/Desktop/code/electron-ditan/数据/_analysis/rebuild_tests/bicubic_blur_tone_2080.png",
+  "output": "/Users/suconnect/Desktop/code/electron-ditan/数据/_analysis/rebuild_tests/bicubic_blur_tone_2080_render.png",
+  "pyvips": {
+    "available": true,
+    "version": "3.1.1"
+  },
+  "effect_layer_index": 1,
+  "effect_layer_name": "图层 0",
+  "effect_layer_clipping": true,
+  "clipping_base_layer_index": 0,
+  "clipping_base_layer_name": "图层 1",
+  "replacement_layer_index": 1,
+  "replacement_layer_name": "图层 0",
+  "replacement_layer_clipping": true,
+  "replacement_strategy": "effect-layer-rgb",
+  "replacement_layer_alpha_reused": true,
+  "fit": "stretch",
+  "source_size": [
+    2080,
+    2960
+  ],
+  "source_preprocess": {
+    "mode": "none",
+    "applied": false
+  },
+  "target_bbox": [
+    0,
+    0,
+    2093,
+    3009
+  ],
+  "placed_size": [
+    2093,
+    3009
+  ],
+  "effects": [
+    {
+      "type": "PatternOverlay",
+      "enabled": true,
+      "opacity": 55.0,
+      "blend_mode": "b'linearLight'",
+      "pattern_name": "\u0000",
+      "pattern_id": "",
+      "scale": 100.0
+    }
+  ],
+  "comparisons": [
+    {
+      "path": "数据/_analysis/psd_composite.png",
+      "mean_abs_diff": [
+        9.28,
+        9.665,
+        9.37
+      ],
+      "render_mean_rgb": [
+        107.903,
+        90.492,
+        72.687
+      ],
+      "reference_mean_rgb": [
+        111.623,
+        96.89,
+        79.332
+      ]
+    }
+  ]
+}

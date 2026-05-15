@@ -1,0 +1,4 @@
+psd-tools>=1.11.0
+Pillow>=11.0.0
+numpy>=2.0.0
+pyvips>=3.0.0

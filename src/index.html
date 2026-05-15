@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>EasyStitch</title>
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob:; img-src 'self' data: blob:; connect-src 'self' https://plan007.cn https://*.plan007.cn;" />
+</head>
+<body>
+  <div id="app"></div>
+  <!-- 静态方式加载：放在 public 根目录，通过绝对路径引用，避免被 Vite 解析打包 -->
+  <script>
+    window.cvReady = false;
+    window.Module = {
+      locateFile: f => f,
+      onRuntimeInitialized(){
+        console.log('[OpenCV] runtime initialized');
+        if(!window.cv && window.Module){ window.cv = window.Module; console.log('[OpenCV] cv alias bound'); }
+        window.cvReady = true;
+      }
+    };
+  </script>
+  <!-- 从 public 目录加载（/ 表示 public 根），不要加 type="module"，以避免 Vite 试图打包 -->
+  <script src="/opencv.js"></script>
+  <script src="/brushify.js"></script>
+  <script type="module" src="./main.js"></script>
+</body>
+</html>

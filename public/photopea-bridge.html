@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Photopea Bridge</title>
+    <style>
+      html, body {
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: #111;
+      }
+      #photopea-frame {
+        width: 100%;
+        height: 100%;
+        border: 0;
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <iframe id="photopea-frame" title="Photopea bridge"></iframe>
+    <script>
+      const fs = require('fs')
+
+      const frame = document.getElementById('photopea-frame')
+      const query = new URLSearchParams(window.location.search)
+      const defaultEditorSrc = query.get('editorSrc') || ''
+
+      const state = {
+        editorSrc: defaultEditorSrc,
+        ready: false,
+        doneWaiters: [],
+        frameLoadWaiters: [],
+        binaryQueue: [],
+        messageQueue: [],
+        logs: []
+      }
+
+      function log(message, extra = null) {
+        const item = {
+          at: new Date().toISOString(),
+          message: String(message || '')
+        }
+        if (extra !== null && extra !== undefined) item.extra = extra
+        state.logs.push(item)
+        if (state.logs.length > 200) state.logs.shift()
+        try {
+          console.info('[photopea-bridge]', item.message, extra || '')
+        } catch (_) {}
+      }
+
+      function clearQueues() {
+        state.binaryQueue = []
+        state.messageQueue = []
+      }
+
+      function settleWaiters(kind, payload) {
+        const waiters = state.doneWaiters.splice(0)
+        for (const waiter of waiters) {
+          clearTimeout(waiter.timer)
+          if (kind === 'resolve') waiter.resolve(payload)
+          else waiter.reject(payload)
+        }
+      }
+
+      function settleFrameLoadWaiters(kind, payload) {
+        const waiters = state.frameLoadWaiters.splice(0)
+        for (const waiter of waiters) {
+          clearTimeout(waiter.timer)
+          if (kind === 'resolve') waiter.resolve(payload)
+          else waiter.reject(payload)
+        }
+      }
+
+      function waitForDone(timeoutMs, label) {
+        return new Promise((resolve, reject) => {
+          const timer = setTimeout(() => {
+            reject(new Error(`photopea-timeout:${label || 'done'}:${timeoutMs}`))
+          }, Math.max(1000, Number(timeoutMs || 0) || 30000))
+          state.doneWaiters.push({ resolve, reject, timer })
+        })
+      }
+
+      function waitForFrameLoad(timeoutMs) {
+        return new Promise((resolve, reject) => {
+          const timer = setTimeout(() => {
+            reject(new Error(`photopea-timeout:frame-load:${timeoutMs}`))
+          }, Math.max(1000, Number(timeoutMs || 0) || 30000))
+          state.frameLoadWaiters.push({ resolve, reject, timer })
+        })
+      }
+
+      function sleep(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms))
+      }
+
+      function normalizeBinaryToBase64(data) {
+        if (data instanceof ArrayBuffer) {
+          return Buffer.from(data).toString('base64')
+        }
+        if (ArrayBuffer.isView(data)) {
+          return Buffer.from(data.buffer, data.byteOffset, data.byteLength).toString('base64')
+        }
+        return ''
+      }
+
+      function nodeBufferToArrayBuffer(buffer) {
+        return buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength)
+      }
+
+      function readFileAsArrayBuffer(filePath) {
+        const buffer = fs.readFileSync(filePath)
+        return nodeBufferToArrayBuffer(buffer)
+      }
+
+      function postToEditor(payload) {
+        if (!frame.contentWindow) {
+          throw new Error('photopea-frame-missing')
+        }
+        frame.contentWindow.postMessage(payload, '*')
+      }
+
+      frame.addEventListener('load', () => {
+        log('editor-frame-load', { src: frame.src || '' })
+        settleFrameLoadWaiters('resolve', { src: frame.src || '' })
+      })
+
+      async function probeEditorReady(timeoutMs) {
+        const deadline = Date.now() + Math.max(4000, Number(timeoutMs || 0) || 30000)
+        let attempt = 0
+        while (Date.now() < deadline) {
+          attempt += 1
+          clearQueues()
+          const probeToken = `__photopea_bridge_ready__:${attempt}:${Date.now()}`
+          try {
+            postToEditor(`app.echoToOE(${JSON.stringify(probeToken)});`)
+          } catch (error) {
+            log('editor-ready-probe-post-failed', { attempt, error: error?.message || String(error) })
+          }
+          try {
+            await waitForDone(Math.min(1800, Math.max(1000, deadline - Date.now())), 'editor-ready-probe')
+          } catch (error) {
+            log('editor-ready-probe-timeout', { attempt, error: error?.message || String(error) })
+          }
+          if (state.messageQueue.includes(probeToken)) {
+            log('editor-ready-probe-ok', { attempt })
+            return true
+          }
+          await sleep(250)
+        }
+        throw new Error(`photopea-timeout:editor-ready:${timeoutMs}`)
+      }
+
+      async function reloadEditor(editorSrc, timeoutMs) {
+        const src = String(editorSrc || '').trim()
+        if (!src) throw new Error('photopea-editor-src-missing')
+        state.ready = false
+        clearQueues()
+        frame.src = src
+        log('reload-editor', { src })
+        await waitForFrameLoad(timeoutMs || 30000)
+        await probeEditorReady(timeoutMs || 30000)
+        state.ready = true
+      }
+
+      async function openBinaryFile(filePath, timeoutMs) {
+        clearQueues()
+        const payload = readFileAsArrayBuffer(filePath)
+        log('open-binary-file', { filePath, bytes: payload.byteLength || 0 })
+        postToEditor(payload)
+        await waitForDone(timeoutMs || 60000, 'open-binary-file')
+      }
+
+      async function runScript(script, timeoutMs) {
+        clearQueues()
+        log('run-script', { length: String(script || '').length })
+        postToEditor(String(script || ''))
+        await waitForDone(timeoutMs || 60000, 'run-script')
+        return {
+          outputBase64: state.binaryQueue[state.binaryQueue.length - 1] || '',
+          messages: state.messageQueue.slice(0)
+        }
+      }
+
+      function buildExportScript(task) {
+        const lines = ['(function(){']
+        if (task.documentSource) {
+          lines.push(`app.activeDocument.source = ${JSON.stringify(String(task.documentSource))};`)
+        }
+        if (task.documentName) {
+          lines.push(`app.activeDocument.name = ${JSON.stringify(String(task.documentName))};`)
+        }
+        if (task.beforeExportScript) {
+          lines.push(String(task.beforeExportScript))
+        }
+        lines.push(`app.activeDocument.saveToOE(${JSON.stringify(task.exportFormat || 'png')});`)
+        lines.push('})();')
+        return lines.join('\n')
+      }
+
+      window.addEventListener('message', event => {
+        const data = event.data
+        if (frame.contentWindow && event.source !== frame.contentWindow) {
+          log('editor-message-source-mismatch', {
+            origin: event.origin || '',
+            type:
+              data instanceof ArrayBuffer || ArrayBuffer.isView(data)
+                ? 'binary'
+                : typeof data
+          })
+        }
+        if (data === 'done') {
+          log('editor-done')
+          settleWaiters('resolve', { type: 'done' })
+          return
+        }
+        if (data instanceof ArrayBuffer || ArrayBuffer.isView(data)) {
+          const base64 = normalizeBinaryToBase64(data)
+          state.binaryQueue.push(base64)
+          log('editor-binary-output', { count: state.binaryQueue.length, bytes: Math.round(base64.length * 0.75) })
+          return
+        }
+        if (typeof data === 'string') {
+          state.messageQueue.push(data)
+          log('editor-message', data)
+        }
+      })
+
+      window.runPhotopeaRenderTask = async function runPhotopeaRenderTask(task) {
+        const startedAt = Date.now()
+        try {
+          const timeoutMs = Math.max(30000, Number(task?.timeoutMs || 0) || 120000)
+          const editorSrc = String(task?.editorSrc || state.editorSrc || '').trim()
+          await reloadEditor(editorSrc, timeoutMs)
+          await openBinaryFile(String(task?.psdPath || ''), timeoutMs)
+          const exportResult = await runScript(buildExportScript(task || {}), timeoutMs)
+          if (!exportResult.outputBase64) {
+            throw new Error('photopea-output-missing')
+          }
+          return {
+            ok: true,
+            outputDataUrl: `data:image/${task?.exportFormat || 'png'};base64,${exportResult.outputBase64}`,
+            messages: exportResult.messages,
+            logs: state.logs.slice(0),
+            elapsedMs: Date.now() - startedAt
+          }
+        } catch (error) {
+          settleWaiters('reject', error)
+          return {
+            ok: false,
+            error: error?.message || String(error),
+            logs: state.logs.slice(0),
+            elapsedMs: Date.now() - startedAt
+          }
+        }
+      }
+
+      window.photopeaBridge = {
+        reloadEditor,
+        runPhotopeaRenderTask: window.runPhotopeaRenderTask
+      }
+    </script>
+  </body>
+</html>

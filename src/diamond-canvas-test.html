@@ -1,0 +1,1025 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DiamondCanvas 组件测试</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+        }
+        
+        .app {
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .header {
+            background: #2c3e50;
+            color: white;
+            padding: 16px 24px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .header h1 {
+            font-size: 20px;
+            font-weight: 600;
+        }
+        
+        .main {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+        }
+        
+        .sidebar {
+            width: 300px;
+            background: white;
+            border-right: 1px solid #e1e5e9;
+            padding: 20px;
+            overflow-y: auto;
+        }
+        
+        .control-group {
+            margin-bottom: 24px;
+        }
+        
+        .control-group h3 {
+            font-size: 14px;
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 12px;
+        }
+        
+        .form-field {
+            margin-bottom: 16px;
+        }
+        
+        .form-field label {
+            display: block;
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 6px;
+        }
+        
+        .form-field input,
+        .form-field select {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        
+        .btn {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            width: 100%;
+            margin-bottom: 8px;
+        }
+        
+        .btn:hover {
+            background: #2980b9;
+        }
+        
+        .btn:disabled {
+            background: #bdc3c7;
+            cursor: not-allowed;
+        }
+        
+        .canvas-container {
+            flex: 1;
+            position: relative;
+        }
+        
+        .status-info {
+            background: #ecf0f1;
+            padding: 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            color: #2c3e50;
+            margin-bottom: 16px;
+        }
+        
+        .mock-images {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        
+        .mock-image {
+            width: 60px;
+            height: 60px;
+            border: 2px dashed #ddd;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 24px;
+            background: #f9f9f9;
+        }
+        
+        .mock-image:hover {
+            border-color: #3498db;
+            background: #ebf3fd;
+        }
+        
+        .mock-image.selected {
+            border-color: #3498db;
+            background: #3498db;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <div class="app">
+            <!-- 顶部标题栏 -->
+        <div class="header">
+            <h1>🎨 钻石画组件测试 - 自动演示模式</h1>
+            <div style="
+                margin-top: 8px; 
+                font-size: 14px; 
+                opacity: 0.8;
+                background: rgba(255,255,255,0.1);
+                padding: 8px 12px;
+                border-radius: 4px;
+                display: inline-block;
+            ">
+                ✨ 页面将在1.5秒后自动生成模拟钻石图，您也可以手动点击侧边栏的生成按钮
+            </div>
+        </div>            <!-- 主要内容区域 -->
+            <div class="main">
+                <!-- 左侧控制面板 -->
+                <div class="sidebar">
+                    <div class="control-group">
+                        <h3>测试参数</h3>
+                        <div class="status-info">
+                            当前状态: {{ currentState }}<br>
+                            钻石图: {{ diamondGridData.length > 0 ? '已生成' : '未生成' }}<br>
+                            网格尺寸: {{ gridWidth }} × {{ gridHeight }}<br>
+                            原图: {{ originalImage ? '已选择' : '未选择' }}<br>
+                            路径: {{ imagePath || '无' }}<br>
+                            色卡组: {{ colorGroupId || '未设置' }}
+                        </div>
+                    </div>
+                    
+                    <div class="control-group">
+                        <h3>快速开始</h3>
+                        <button 
+                            class="btn btn-primary"
+                            @click="autoGenerateSimulatedGrid"
+                            :disabled="isGenerating"
+                            style="
+                                width: 100%; 
+                                padding: 12px; 
+                                font-size: 16px; 
+                                font-weight: 600;
+                                background: linear-gradient(45deg, #007ACC, #005A9E);
+                                border: none;
+                                border-radius: 6px;
+                                color: white;
+                                cursor: pointer;
+                                margin-bottom: 16px;
+                            "
+                        >
+                            {{ isGenerating ? '正在生成中...' : '🎨 自动生成模拟钻石图' }}
+                        </button>
+                    </div>
+                    
+                    <div class="control-group">
+                        <h3>模拟图片</h3>
+                        <div class="mock-images">
+                            <div 
+                                v-for="(img, index) in mockImages" 
+                                :key="index"
+                                class="mock-image"
+                                :class="{ selected: selectedImageIndex === index }"
+                                @click="selectMockImage(index)"
+                                :title="img.name"
+                            >
+                                {{ img.icon }}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="control-group">
+                        <h3>生成参数</h3>
+                        <div class="form-field">
+                            <label>图片路径</label>
+                            <input v-model="imagePath" placeholder="选择模拟图片自动填入" readonly>
+                        </div>
+                        <div class="form-field">
+                            <label>色卡组ID</label>
+                            <select v-model="colorGroupId">
+                                <option value="">请选择色卡组</option>
+                                <option value="1">基础色卡组 (ID: 1)</option>
+                                <option value="2">扩展色卡组 (ID: 2)</option>
+                                <option value="3">专业色卡组 (ID: 3)</option>
+                            </select>
+                        </div>
+                        <div class="form-field">
+                            <label>格子大小 (cm)</label>
+                            <input v-model.number="cellSizeCm" type="number" step="0.1" min="0.1" max="2">
+                        </div>
+                    </div>
+                    
+                    <div class="control-group">
+                        <h3>操作</h3>
+                        <button class="btn" @click="generateDiamondGrid" :disabled="!canGenerate">
+                            {{ isGenerating ? '生成中...' : '生成钻石图' }}
+                        </button>
+                        <button class="btn" @click="resetDemo">
+                            重置演示
+                        </button>
+                        <button class="btn" @click="toggleProgress">
+                            {{ showProgress ? '隐藏进度' : '显示进度' }}
+                        </button>
+                        <button class="btn" @click="mockGenerate" style="background: #e74c3c;">
+                            强制生成模拟数据
+                        </button>
+                    </div>
+                    
+                    <div class="control-group" v-if="diamondGridData.length > 0">
+                        <h3>生成结果</h3>
+                        <div class="status-info">
+                            网格尺寸: {{ gridWidth }} × {{ gridHeight }}<br>
+                            总格子数: {{ gridWidth * gridHeight }}<br>
+                            格子大小: {{ cellSizeCm }}cm<br>
+                            色卡组: {{ colorGroupId }}
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 右侧画布区域 -->
+                <div class="canvas-container">
+                    <diamond-canvas
+                        :original-image="originalImage"
+                        :image-path="imagePath"
+                        :color-group-id="colorGroupId"
+                        :cell-size-cm="cellSizeCm"
+                        :status="status"
+                        :progress="progress"
+                        :show-progress="showProgress"
+                        @grid-data-changed="onGridDataChanged"
+                        @export-ready="onExportReady"
+                        @handle-image-files="onHandleImageFiles"
+                    />
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { createApp, ref, computed, watch } = Vue;
+
+        // Mock DiamondPaintingEditor 组件
+        const MockDiamondPaintingEditor = {
+            props: ['width', 'height', 'gridData'],
+            template: `
+                <div style="
+                    width: 100%; 
+                    height: 100%; 
+                    background: #f8f9fa; 
+                    display: flex; 
+                    align-items: center; 
+                    justify-content: center;
+                    flex-direction: column;
+                    padding: 20px;
+                    overflow: auto;
+                ">
+                    <div v-if="!gridData || gridData.length === 0" style="
+                        display: flex;
+                        flex-direction: column;
+                        align-items: center;
+                        justify-content: center;
+                        height: 100%;
+                    ">
+                        <div style="font-size: 48px; margin-bottom: 16px;">🎨</div>
+                        <div style="font-size: 18px; font-weight: 600; margin-bottom: 8px;">钻石画编辑器</div>
+                        <div style="font-size: 14px; color: #666; text-align: center;">
+                            尺寸: {{ width }} × {{ height }}<br>
+                            等待数据...
+                        </div>
+                    </div>
+                    
+                    <div v-else style="
+                        display: flex;
+                        flex-direction: column;
+                        width: 100%;
+                        height: 100%;
+                        padding: 20px;
+                        box-sizing: border-box;
+                    ">
+                        <div style="
+                            font-size: 16px; 
+                            font-weight: 600; 
+                            margin-bottom: 16px;
+                            color: #2c3e50;
+                            text-align: center;
+                            flex-shrink: 0;
+                        ">
+                            钻石画网格 ({{ width }} × {{ height }}) - 格子: {{ getCellSize() }}px - 总尺寸: {{ width * getCellSize() }}×{{ height * getCellSize() }}px
+                        </div>
+                        
+                        <div style="
+                            flex: 1;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            overflow: auto;
+                            padding: 10px;
+                        ">
+                            <div 
+                                style="
+                                    display: inline-block;
+                                    border: 2px solid #333;
+                                    background: white;
+                                    border-radius: 6px;
+                                    overflow: hidden;
+                                    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+                                "
+                                :style="getGridContainerStyle()"
+                            >
+                                <div 
+                                    v-for="(row, y) in gridData" 
+                                    :key="y"
+                                    style="display: flex; line-height: 0;"
+                                >
+                                    <div
+                                        v-for="(cell, x) in row"
+                                        :key="x"
+                                        :style="{
+                                            width: getCellSize() + 'px',
+                                            height: getCellSize() + 'px',
+                                            backgroundColor: 'rgb(' + cell.r + ',' + cell.g + ',' + cell.b + ')',
+                                            border: getCellSize() > 8 ? '0.5px solid rgba(0,0,0,0.1)' : 'none',
+                                            cursor: 'pointer'
+                                        }"
+                                        :title="'(' + x + ',' + y + ') RGB(' + cell.r + ',' + cell.g + ',' + cell.b + ')'"
+                                        @click="onCellClick(x, y, cell)"
+                                    ></div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div style="
+                            margin-top: 12px;
+                            font-size: 12px;
+                            color: #666;
+                            text-align: center;
+                            flex-shrink: 0;
+                        ">
+                            点击格子可以查看颜色信息 · 格子总数: {{ width * height }} · 格子大小: {{ getCellSize() }}px
+                        </div>
+                    </div>
+                </div>
+            `,
+            methods: {
+                getCellSize() {
+                    // 根据容器大小和网格尺寸动态计算最佳格子大小
+                    if (!this.gridData || this.gridData.length === 0) return 12;
+                    
+                    // 获取实际可用的容器大小，更精确的计算
+                    const viewportWidth = window.innerWidth - 320; // 侧边栏300px + 边距
+                    const viewportHeight = window.innerHeight - 140; // 头部60px + 各种边距
+                    
+                    // 计算最佳格子尺寸，优先保证填满容器
+                    const cellWidthByContainer = Math.floor((viewportWidth - 40) / this.width); // 减去容器内边距
+                    const cellHeightByContainer = Math.floor((viewportHeight - 40) / this.height);
+                    let cellSize = Math.min(cellWidthByContainer, cellHeightByContainer);
+                    
+                    // 如果计算出的尺寸太小，适当放大
+                    if (cellSize < 3) {
+                        cellSize = Math.max(3, Math.min(cellWidthByContainer, cellHeightByContainer, 6));
+                    }
+                    
+                    // 限制在合理范围内，允许更大的格子
+                    return Math.max(3, Math.min(35, cellSize));
+                },
+                getGridContainerStyle() {
+                    const cellSize = this.getCellSize();
+                    const totalWidth = this.width * cellSize;
+                    const totalHeight = this.height * cellSize;
+                    
+                    // 计算可用空间
+                    const availableWidth = window.innerWidth - 360; // 侧边栏 + 边距
+                    const availableHeight = window.innerHeight - 180; // 头部 + 边距
+                    
+                    // 确保网格不超出可用空间，但尽量利用空间
+                    const finalWidth = Math.min(totalWidth, availableWidth);
+                    const finalHeight = Math.min(totalHeight, availableHeight);
+                    
+                    return {
+                        width: finalWidth + 'px',
+                        height: finalHeight + 'px',
+                        minWidth: Math.min(totalWidth, 200) + 'px',
+                        minHeight: Math.min(totalHeight, 150) + 'px'
+                    };
+                },
+                onCellClick(x, y, cell) {
+                    console.log('Cell clicked:', { x, y, cell });
+                    // 可以添加更多交互逻辑
+                }
+            },
+            mounted() {
+                // 监听窗口大小变化，响应式调整格子大小
+                this.resizeHandler = () => {
+                    this.$forceUpdate();
+                };
+                window.addEventListener('resize', this.resizeHandler);
+            },
+            beforeDestroy() {
+                if (this.resizeHandler) {
+                    window.removeEventListener('resize', this.resizeHandler);
+                }
+            }
+        };
+
+        // Mock DiamondCanvas 组件
+        const DiamondCanvas = {
+            props: {
+                originalImage: Object,
+                imagePath: String,
+                colorGroupId: [String, Number],
+                cellSizeCm: Number,
+                status: Object,
+                progress: Number,
+                showProgress: Boolean
+            },
+            emits: ['grid-data-changed', 'export-ready', 'handle-image-files'],
+            components: {
+                DiamondPaintingEditor: MockDiamondPaintingEditor
+            },
+            setup(props, { emit }) {
+                const canvasWrapper = ref(null);
+                const isGenerating = ref(false);
+                const diamondGridData = ref([]);
+                const gridWidth = ref(40);
+                const gridHeight = ref(40);
+
+                // 监听生成钻石图的触发
+                watch(() => props.imagePath, (newPath) => {
+                    if (newPath && props.colorGroupId) {
+                        generateDiamondGrid();
+                    }
+                });
+
+                watch(() => props.colorGroupId, (newId) => {
+                    if (props.imagePath && newId) {
+                        generateDiamondGrid();
+                    }
+                });
+
+                // Mock 生成钻石图数据
+                const generateDiamondGrid = async () => {
+                    if (!props.imagePath || !props.colorGroupId) {
+                        console.warn('Missing required parameters for diamond grid generation');
+                        return;
+                    }
+
+                    isGenerating.value = true;
+                    
+                    try {
+                        // 模拟生成延迟
+                        await new Promise(resolve => setTimeout(resolve, 2000));
+                        
+                        // 生成模拟网格数据
+                        const width = Math.floor(Math.random() * 20) + 25; // 25-45
+                        const height = Math.floor(Math.random() * 20) + 25; // 25-45
+                        const grid = [];
+                        
+                        for (let y = 0; y < height; y++) {
+                            grid[y] = [];
+                            for (let x = 0; x < width; x++) {
+                                // 生成同心圆渐变效果
+                                const centerX = width / 2;
+                                const centerY = height / 2;
+                                const distance = Math.sqrt((x - centerX) ** 2 + (y - centerY) ** 2);
+                                const maxDistance = Math.sqrt(centerX ** 2 + centerY ** 2);
+                                const ratio = distance / maxDistance;
+                                
+                                grid[y][x] = {
+                                    r: Math.floor(255 * (1 - ratio * 0.8)),
+                                    g: Math.floor(255 * (0.5 + ratio * 0.5)),
+                                    b: Math.floor(255 * ratio)
+                                };
+                            }
+                        }
+                        
+                        diamondGridData.value = grid;
+                        gridWidth.value = width;
+                        gridHeight.value = height;
+                        
+                        emit('grid-data-changed', {
+                            grid: grid,
+                            width: width,
+                            height: height,
+                            cellSizeCm: props.cellSizeCm,
+                            metadata: {
+                                generateTime: new Date().toISOString(),
+                                version: '1.0.0-mock',
+                                mockData: true
+                            }
+                        });
+                        
+                    } catch (error) {
+                        console.error('Failed to generate diamond grid:', error);
+                    } finally {
+                        isGenerating.value = false;
+                    }
+                };
+
+                const handleDragOver = (e) => { e.preventDefault(); };
+                const handleDragLeave = (e) => { e.preventDefault(); };
+                const handleDrop = (e) => {
+                    e.preventDefault();
+                    const files = Array.from(e.dataTransfer.files);
+                    const imageFiles = files.filter(file => file.type.startsWith('image/'));
+                    if (imageFiles.length > 0) {
+                        const processedFiles = imageFiles.map(file => ({
+                            name: file.name,
+                            file: file,
+                            path: URL.createObjectURL(file)
+                        }));
+                        emit('handle-image-files', processedFiles);
+                    }
+                };
+
+                const getImageSrc = (file) => {
+                    return file.path || (file.file ? URL.createObjectURL(file.file) : '');
+                };
+
+                const onGridDataChanged = (newGridData) => {
+                    diamondGridData.value = newGridData;
+                };
+
+                const onExportReady = (exportData) => {
+                    emit('export-ready', exportData);
+                };
+
+                return {
+                    canvasWrapper,
+                    isGenerating,
+                    diamondGridData,
+                    gridWidth,
+                    gridHeight,
+                    generateDiamondGrid,
+                    handleDragOver,
+                    handleDragLeave,
+                    handleDrop,
+                    getImageSrc,
+                    onGridDataChanged,
+                    onExportReady
+                };
+            },
+            template: `
+                <div style="
+                    display: flex; 
+                    flex-direction: column; 
+                    background: #fff; 
+                    height: 100%; 
+                    overflow: hidden; 
+                    position: relative;
+                ">
+                    <!-- 画布区域 -->
+                    <div style="flex: 1; overflow: auto; background: #fafafa; position: relative;" ref="canvasWrapper">
+                        <!-- 图片预览状态 -->
+                        <div 
+                            v-if="originalImage && diamondGridData.length === 0" 
+                            style="
+                                display: flex; 
+                                flex-direction: column; 
+                                align-items: center; 
+                                justify-content: center; 
+                                height: 100%; 
+                                border: 2px dashed #ccc; 
+                                border-radius: 8px; 
+                                position: relative; 
+                                margin: 20px;
+                            "
+                            @dragover="handleDragOver"
+                            @dragleave="handleDragLeave"
+                            @drop="handleDrop"
+                        >
+                            <img :src="getImageSrc(originalImage)" alt="原图" style="
+                                max-width: 70%; 
+                                max-height: 50%; 
+                                border-radius: 8px; 
+                                box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+                            ">
+                            <div style="
+                                position: absolute; 
+                                bottom: 20px; 
+                                left: 20px; 
+                                right: 20px; 
+                                background: rgba(0,0,0,0.8); 
+                                color: white; 
+                                padding: 16px; 
+                                border-radius: 8px; 
+                                font-size: 14px;
+                            ">
+                                <div style="text-align: center;">
+                                    <p>点击生成钻石图按钮开始制作</p>
+                                    <div style="margin-top: 12px; display: flex; flex-direction: column; gap: 8px; font-size: 12px;" v-if="imagePath">
+                                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                                            <span>图片路径:</span>
+                                            <span style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: monospace;">{{ imagePath }}</span>
+                                        </div>
+                                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                                            <span>色卡组ID:</span>
+                                            <span>{{ colorGroupId || '未选择' }}</span>
+                                        </div>
+                                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                                            <span>格子大小:</span>
+                                            <span>{{ cellSizeCm }}cm</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 钻石图编辑器 -->
+                        <div v-else-if="diamondGridData && diamondGridData.length > 0" style="height: 100%; padding: 0;">
+                            <DiamondPaintingEditor
+                                :width="gridWidth"
+                                :height="gridHeight"
+                                :grid-data="diamondGridData"
+                                @data-changed="onGridDataChanged"
+                                @export-ready="onExportReady"
+                            />
+                        </div>
+
+                        <!-- 空状态 -->
+                        <div v-else style="
+                            display: flex; 
+                            flex-direction: column; 
+                            align-items: center; 
+                            justify-content: center; 
+                            height: 100%; 
+                            color: #999;
+                        ">
+                            <div style="font-size: 48px; margin-bottom: 16px;">📷</div>
+                            <p>拖拽图片到这里或选择模拟图片</p>
+                        </div>
+
+                        <!-- 加载状态 -->
+                        <div v-if="isGenerating" style="
+                            position: absolute; 
+                            top: 0; 
+                            left: 0; 
+                            right: 0; 
+                            bottom: 0; 
+                            background: rgba(255, 255, 255, 0.95); 
+                            display: flex; 
+                            align-items: center; 
+                            justify-content: center; 
+                            z-index: 10;
+                        ">
+                            <div style="
+                                text-align: center; 
+                                padding: 32px; 
+                                background: white; 
+                                border-radius: 12px; 
+                                box-shadow: 0 8px 24px rgba(0,0,0,0.15); 
+                                min-width: 300px;
+                            ">
+                                <div style="
+                                    width: 40px; 
+                                    height: 40px; 
+                                    border: 4px solid #f3f3f3; 
+                                    border-top: 4px solid #007ACC; 
+                                    border-radius: 50%; 
+                                    animation: spin 1s linear infinite; 
+                                    margin: 0 auto 16px;
+                                "></div>
+                                <p style="margin: 0 0 16px 0; color: #333; font-size: 16px;">正在生成钻石图...</p>
+                                <div v-if="showProgress" style="
+                                    width: 100%; 
+                                    height: 6px; 
+                                    background: #eee; 
+                                    border-radius: 3px; 
+                                    overflow: hidden; 
+                                    position: relative; 
+                                    margin-top: 8px;
+                                ">
+                                    <div style="
+                                        height: 100%; 
+                                        background: #007acc; 
+                                        transition: width 0.3s ease;
+                                    " :style="{ width: progress + '%' }"></div>
+                                    <span style="
+                                        position: absolute; 
+                                        top: -20px; 
+                                        right: 0; 
+                                        font-size: 12px; 
+                                        color: #666;
+                                    ">{{ progress }}%</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 状态栏 -->
+                    <div style="
+                        background: #f5f5f5; 
+                        border-top: 1px solid #ddd; 
+                        padding: 8px 16px; 
+                        display: flex; 
+                        align-items: center; 
+                        justify-content: space-between; 
+                        font-size: 12px; 
+                        min-height: 36px;
+                    ">
+                        <span :class="['status', status.type]" :style="{
+                            color: status.type === 'error' ? '#d73027' : 
+                                   status.type === 'success' ? '#1a9850' : '#666'
+                        }">{{ status.text }}</span>
+                        <div v-if="diamondGridData.length > 0" style="display: flex; gap: 16px; color: #666;">
+                            <span>尺寸: {{ gridWidth }} × {{ gridHeight }}</span>
+                            <span>格子大小: {{ cellSizeCm }}cm</span>
+                            <span v-if="colorGroupId">色卡组: {{ colorGroupId }}</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <style>
+                @keyframes spin {
+                    0% { transform: rotate(0deg); }
+                    100% { transform: rotate(360deg); }
+                }
+                </style>
+            `
+        };
+
+        // 主应用
+        createApp({
+            components: {
+                DiamondCanvas
+            },
+            setup() {
+                // 响应式数据
+                const imagePath = ref('');
+                const colorGroupId = ref('');
+                const cellSizeCm = ref(0.5);
+                const originalImage = ref(null);
+                const selectedImageIndex = ref(-1);
+                const isGenerating = ref(false);
+                const diamondGridData = ref([]);
+                const gridWidth = ref(45);  // 稍微增加默认网格宽度
+                const gridHeight = ref(35); // 稍微增加默认网格高度
+                const progress = ref(0);
+                const showProgress = ref(false);
+                
+                // 模拟图片数据
+                const mockImages = ref([
+                    { name: '风景图片', icon: '🏔️', path: '/mock/landscape.jpg' },
+                    { name: '人物照片', icon: '👤', path: '/mock/portrait.jpg' },
+                    { name: '花朵图片', icon: '🌸', path: '/mock/flower.jpg' },
+                    { name: '动物图片', icon: '🐱', path: '/mock/animal.jpg' },
+                    { name: '建筑图片', icon: '🏠', path: '/mock/building.jpg' },
+                    { name: '艺术图片', icon: '🎨', path: '/mock/artwork.jpg' }
+                ]);
+                
+                // 自动生成模拟钻石图
+                const autoGenerateSimulatedGrid = () => {
+                    console.log('开始自动生成模拟钻石图...');
+                    isGenerating.value = true;
+                    showProgress.value = true;
+                    progress.value = 0;
+                    
+                    // 重置状态
+                    diamondGridData.value = [];
+                    
+                    // 模拟生成过程
+                    const interval = setInterval(() => {
+                        progress.value += 8;
+                        if (progress.value >= 100) {
+                            clearInterval(interval);
+                            
+                            // 设置模拟图片信息
+                            originalImage.value = {
+                                id: 'simulated_landscape',
+                                name: '模拟风景钻石画.jpg',
+                                width: gridWidth.value * 20, // 根据网格计算图片尺寸
+                                height: gridHeight.value * 20,
+                                type: 'landscape'
+                            };
+                            
+                            imagePath.value = '/mock/simulated_landscape.jpg';
+                            colorGroupId.value = '1';
+                            selectedImageIndex.value = 0;
+                            
+                            console.log('模拟图片信息设置完成，开始生成网格...');
+                            
+                            // 生成完成，稍后触发网格生成
+                            setTimeout(() => {
+                                isGenerating.value = false;
+                                showProgress.value = false;
+                                
+                                // 自动触发网格生成
+                                console.log('触发钻石网格生成...');
+                                generateDiamondGrid();
+                            }, 800);
+                        }
+                    }, 150);
+                };
+
+                // 状态
+                const status = ref({ type: 'info', text: '准备就绪' });
+
+                // 计算属性
+                const currentState = computed(() => {
+                    if (isGenerating.value) return '生成中';
+                    if (diamondGridData.value.length > 0) return '已生成钻石图';
+                    if (originalImage.value) return '图片已选择';
+                    return '等待选择图片';
+                });
+
+                const canGenerate = computed(() => {
+                    return imagePath.value && colorGroupId.value && !isGenerating.value;
+                });
+
+                // 方法
+                const selectMockImage = (index) => {
+                    selectedImageIndex.value = index;
+                    const mockImg = mockImages.value[index];
+                    imagePath.value = mockImg.path;
+                    originalImage.value = {
+                        name: mockImg.name,
+                        path: mockImg.path
+                    };
+                    status.value = { type: 'success', text: `已选择${mockImg.name}` };
+                };
+
+                const generateDiamondGrid = () => {
+                    if (!canGenerate.value) return;
+                    
+                    isGenerating.value = true;
+                    status.value = { type: 'info', text: '正在生成钻石图...' };
+                    
+                    if (showProgress.value) {
+                        progress.value = 0;
+                        const interval = setInterval(() => {
+                            progress.value += Math.random() * 10;
+                            if (progress.value >= 90) {
+                                progress.value = 90;
+                                clearInterval(interval);
+                            }
+                        }, 200);
+                        
+                        setTimeout(() => {
+                            progress.value = 100;
+                            clearInterval(interval);
+                        }, 1800);
+                    }
+                };
+
+                const resetDemo = () => {
+                    imagePath.value = '';
+                    colorGroupId.value = '';
+                    cellSizeCm.value = 0.5;
+                    originalImage.value = null;
+                    selectedImageIndex.value = -1;
+                    isGenerating.value = false;
+                    diamondGridData.value = [];
+                    gridWidth.value = 40;
+                    gridHeight.value = 40;
+                    progress.value = 0;
+                    status.value = { type: 'info', text: '准备就绪' };
+                };
+
+                const toggleProgress = () => {
+                    showProgress.value = !showProgress.value;
+                };
+
+                const mockGenerate = () => {
+                    // 直接设置模拟数据
+                    const mockGrid = [];
+                    const width = 30;
+                    const height = 30;
+                    
+                    // 生成更有规律的渐变色彩，模拟真实图片效果
+                    for (let y = 0; y < height; y++) {
+                        mockGrid[y] = [];
+                        for (let x = 0; x < width; x++) {
+                            // 创建一个彩虹渐变效果
+                            const hue = (x / width * 360 + y / height * 60) % 360;
+                            const saturation = 0.7 + (y / height) * 0.3;
+                            const lightness = 0.4 + (x / width) * 0.4;
+                            
+                            // 将HSL转换为RGB
+                            const rgb = hslToRgb(hue, saturation, lightness);
+                            
+                            mockGrid[y][x] = {
+                                r: Math.round(rgb.r),
+                                g: Math.round(rgb.g),
+                                b: Math.round(rgb.b)
+                            };
+                        }
+                    }
+                    
+                    onGridDataChanged({
+                        grid: mockGrid,
+                        width: width,
+                        height: height,
+                        cellSizeCm: cellSizeCm.value,
+                        metadata: { mock: true }
+                    });
+                };
+
+                // HSL到RGB转换函数
+                const hslToRgb = (h, s, l) => {
+                    h /= 360;
+                    const a = s * Math.min(l, 1 - l);
+                    const f = n => {
+                        const k = (n + h * 12) % 12;
+                        return l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
+                    };
+                    return {
+                        r: f(0) * 255,
+                        g: f(8) * 255,
+                        b: f(4) * 255
+                    };
+                };
+
+                const onGridDataChanged = (data) => {
+                    diamondGridData.value = data.grid;
+                    gridWidth.value = data.width;
+                    gridHeight.value = data.height;
+                    isGenerating.value = false;
+                    status.value = { type: 'success', text: '钻石图生成完成' };
+                };
+
+                const onExportReady = (data) => {
+                    console.log('Export ready:', data);
+                    status.value = { type: 'success', text: '导出准备就绪' };
+                };
+
+                const onHandleImageFiles = (files) => {
+                    if (files.length > 0) {
+                        const file = files[0];
+                        imagePath.value = file.path;
+                        originalImage.value = file;
+                        selectedImageIndex.value = -1;
+                        status.value = { type: 'success', text: `已加载${file.name}` };
+                    }
+                };
+
+                return {
+                    // 数据
+                    imagePath,
+                    colorGroupId,
+                    cellSizeCm,
+                    originalImage,
+                    selectedImageIndex,
+                    isGenerating,
+                    diamondGridData,
+                    gridWidth,
+                    gridHeight,
+                    progress,
+                    showProgress,
+                    mockImages,
+                    status,
+                    
+                    // 计算属性
+                    currentState,
+                    canGenerate,
+                    
+                    // 方法
+                    selectMockImage,
+                    generateDiamondGrid,
+                    resetDemo,
+                    toggleProgress,
+                    mockGenerate,
+                    onGridDataChanged,
+                    onExportReady,
+                    onHandleImageFiles,
+                    autoGenerateSimulatedGrid
+                };
+            },
+            mounted() {
+                // 页面加载后自动生成模拟钻石图
+                setTimeout(() => {
+                    this.autoGenerateSimulatedGrid();
+                }, 1500);
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
