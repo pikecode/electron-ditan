@@ -11,6 +11,13 @@ import {
 
 self.onmessage = async (e) => {
   const { type, payload, id } = e.data
+  const reportProgress = (progress) => {
+    self.postMessage({
+      type: 'progress',
+      id,
+      progress
+    })
+  }
 
   try {
     switch (type) {
@@ -25,7 +32,7 @@ self.onmessage = async (e) => {
         break
       }
       case 'applyStitchEffect': {
-        const result = await handleStitchEffect(payload)
+        const result = await handleStitchEffect(payload, reportProgress)
         self.postMessage({ type: 'success', id, result })
         break
       }
@@ -98,7 +105,7 @@ async function handleMutualTransparency({ templateImageData, targetImageData, al
   }
 }
 
-async function handleStitchEffect({ imageData, options }) {
+async function handleStitchEffect({ imageData, options }, reportProgress) {
   const {
     palette,
     paletteSize = 32,
@@ -194,10 +201,7 @@ async function handleStitchEffect({ imageData, options }) {
 
     // 每行完成后报告进度
     if ((y / cellSize) % 10 === 0) {
-      self.postMessage({
-        type: 'progress',
-        progress: Math.min(1, (y + cellSize) / h)
-      })
+      reportProgress(Math.min(1, (y + cellSize) / h))
     }
   }
 

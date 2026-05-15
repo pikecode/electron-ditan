@@ -1267,11 +1267,6 @@ class BrushifyJS {
   _deblockUpscaledPixelArtBeforeMerge(bgra, sourceCols = 0, sourceRows = 0) {
     if (this.params.linearLightPixelArtDeblockEnabled === false) return bgra;
     const minScale = Math.max(1, Number(this.params.linearLightPixelArtDeblockMinScale) || 2.5);
-    const scaleX = sourceCols > 0 ? bgra.cols / sourceCols : 1;
-    const scaleY = sourceRows > 0 ? bgra.rows / sourceRows : 1;
-    const scale = Math.max(scaleX, scaleY);
-    if (scale < minScale) return bgra;
-
     const bgr = new cv.Mat();
     let pooled = null;
     let upscaled = null;
@@ -1279,6 +1274,13 @@ class BrushifyJS {
       cv.cvtColor(bgra, bgr, cv.COLOR_BGRA2BGR);
       const bx = this._estimateBlockSizeBGR(bgr, 'x');
       const by = this._estimateBlockSizeBGR(bgr, 'y');
+      const scaleX = sourceCols > 0 ? bgra.cols / sourceCols : bx;
+      const scaleY = sourceRows > 0 ? bgra.rows / sourceRows : by;
+      const scale = Math.max(scaleX, scaleY, bx, by);
+      if (scale < minScale) {
+        bgr.delete();
+        return bgra;
+      }
       if (bx <= 1 && by <= 1) {
         bgr.delete();
         return bgra;
@@ -1633,14 +1635,21 @@ class BrushifyJS {
       }
 
       // PSD Pattern Overlay 语义：底图是原始图像，pattern 作为上层纹理参与 Linear Light。
-      // 这里不再对底图做预平滑/去块/喷色描边，否则会把 PS 里的颗粒和色相提前抹掉。
+      // 格子源图若来自低分辨率色块放大，先做轻量去块/柔化，再叠模板纹理；
+      // 否则 linearLight 会把整齐方格边缘一起放大，阴影区域尤其明显。
+      let base = gridSized.clone();
+      base = this._deblockUpscaledPixelArtBeforeMerge(base, grid.cols, grid.rows);
+      base = this._softenGridBlocksBeforeMerge(base);
+      base = this._softenShadowBlocksBeforeMerge(base);
+
       effect = templSized.clone();
       merged = this.mergeImagesPure(
-        gridSized,
+        base,
         effect,
         'linearLight',
         Math.max(0, Math.min(1, Number(overlayOpacity)))
       );
+      base.delete();
 
       // 输出 alpha 以底图为准；透明区 RGB 清零，避免后续缩放时出现脏边。
       const eData = merged.data;

@@ -162,8 +162,8 @@ const SHOW_STEP3_TUNING = false
 const SHOW_EXPORT_TUNING = false
 const LOCKED_STEP3 = Object.freeze({
   textureOpacity: 0.55,   // 55%
-  postLift: 0,            // 关掉暗部提亮，避免黑区被整体抬亮
-  textureReliefPct: 0     // 关掉模板高频回灌，避免纹理从暗部浮出来
+  postLift: 3,            // 轻微提亮，避免线性光后整体偏闷
+  textureReliefPct: 8     // 轻量回灌模板高频，让纹理更贴合但不过度浮起
 })
 const LOCKED_EXPORT = Object.freeze({
   exportSharpness: 0,
@@ -1200,14 +1200,14 @@ function applyMergeNeutralParams(instance) {
   const usePsdEffectTemplate = isEffectTemplatePsd(selectedTemplate.value)
   instance.params.linearLightBlendInEncodedSpace = true
   instance.params.linearLightGridPresoftenEnabled = usePsdEffectTemplate || !useAtnPsdFlow
-  instance.params.linearLightGridPresoftenSigma = usePsdEffectTemplate ? 0.68 : (useAtnPsdFlow ? 0 : 0.18)
-  instance.params.linearLightPixelArtDeblockEnabled = usePsdEffectTemplate
-  instance.params.linearLightPixelArtDeblockMinScale = usePsdEffectTemplate ? 2.5 : 99
-  instance.params.linearLightShadowDeblockEnabled = usePsdEffectTemplate
-  instance.params.linearLightShadowDeblockSigma = usePsdEffectTemplate ? 1.15 : 0
+  instance.params.linearLightGridPresoftenSigma = usePsdEffectTemplate ? 0.68 : (useAtnPsdFlow ? 0 : 0.72)
+  instance.params.linearLightPixelArtDeblockEnabled = true
+  instance.params.linearLightPixelArtDeblockMinScale = usePsdEffectTemplate ? 2.5 : 1.8
+  instance.params.linearLightShadowDeblockEnabled = usePsdEffectTemplate || !useAtnPsdFlow
+  instance.params.linearLightShadowDeblockSigma = usePsdEffectTemplate ? 1.15 : 0.95
   instance.params.linearLightShadowDeblockStart = 0.14
-  instance.params.linearLightShadowDeblockEnd = usePsdEffectTemplate ? 0.44 : 0.5
-  instance.params.linearLightShadowDeblockMix = usePsdEffectTemplate ? 0.56 : 0
+  instance.params.linearLightShadowDeblockEnd = usePsdEffectTemplate ? 0.44 : 0.38
+  instance.params.linearLightShadowDeblockMix = usePsdEffectTemplate ? 0.56 : 0.34
   // PSD effect-template 更接近“硬块底图 + 纹理叠加”，放大时保留色块边界，
   // 否则先被 cubic 抹软后再 linearLight，视觉上会发灰、发淡。
   instance.params.linearLightGridUpscaleSmooth = usePsdEffectTemplate ? false : true
@@ -1219,7 +1219,7 @@ function applyMergeNeutralParams(instance) {
   instance.params.linearLightSprayedMix = usePsdEffectTemplate ? 0.48 : (useAtnPsdFlow ? 0.28 : 0)
   instance.params.linearLightPostLift = Number(postLift.value || 0)
   instance.params.linearLightTextureRelief = Math.max(0, Math.min(0.42, Number(textureReliefPct.value || 0) / 100 * 0.42))
-  instance.params.mergePureMicroContrast = 0
+  instance.params.mergePureMicroContrast = usePsdEffectTemplate ? 0 : 4
 }
 
 function applyBrushifyMergeParams() {

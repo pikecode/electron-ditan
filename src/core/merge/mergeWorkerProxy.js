@@ -1,9 +1,7 @@
 // MergeWorkerProxy - 在主线程调用 Web Worker 处理图像
-import { getCanvasPool } from '../../utils/canvasPool.js'
-
 export class MergeWorkerProxy {
   constructor() {
-    this.worker = new Worker(new URL('../workers/merge.worker.js', import.meta.url), { type: 'module' })
+    this.worker = new Worker(new URL('../../workers/merge.worker.js', import.meta.url), { type: 'module' })
     this.pending = new Map()
     this.id = 0
 
@@ -29,7 +27,12 @@ export class MergeWorkerProxy {
     const id = ++this.id
     return new Promise((resolve, reject) => {
       this.pending.set(id, { resolve, reject, onProgress })
-      this.worker.postMessage({ type, payload, id })
+      try {
+        this.worker.postMessage({ type, payload, id })
+      } catch (error) {
+        this.pending.delete(id)
+        reject(error)
+      }
     })
   }
 

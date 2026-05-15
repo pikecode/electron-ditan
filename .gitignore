@@ -57,3 +57,6 @@ output/
 .codex/
 .venv-psd-open/
 vendor/
+
+# Claude/OMC
+.omc/

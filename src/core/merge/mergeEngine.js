@@ -4,7 +4,7 @@ import { FabricAdapter } from './fabricAdapter'
 import { LayerManager } from './layerManager'
 import { CommandManager, BaseCommand } from './commandManager'
 import { getCanvasPool } from '../../utils/canvasPool.js'
-import { MergeWorkerProxy } from './mergeWorkerProxy.js'
+import { getMergeWorker } from './mergeWorkerProxy.js'
 import {
   fastAverageAlpha,
   fastSobelAngles,
@@ -246,7 +246,6 @@ export class MergeEngine {
       const targetImageData = ctx.getImageData(0, 0, w, h);
       const tmplData = tCtx.getImageData(0, 0, w, h);
 
-      // 使用优化的批量遮罩函数
       let keyColor = null;
       if (mode === 'colorKey') {
         if (Array.isArray(color)) {
@@ -256,12 +255,32 @@ export class MergeEngine {
         }
       }
 
-      batchApplyMask(targetImageData, tmplData, alphaThreshold, mode, {
-        color: keyColor,
-        tolerance
-      });
+      if (useWorker) {
+        try {
+          const worker = getMergeWorker();
+          const masked = await worker.applyTemplateMask(tmplData, targetImageData, {
+            mode,
+            alphaThreshold,
+            color: keyColor,
+            tolerance
+          });
+          ctx.putImageData(masked, 0, 0);
+        } catch (err) {
+          console.warn('[MergeEngine] worker mask failed, fallback to main thread', err);
+          batchApplyMask(targetImageData, tmplData, alphaThreshold, mode, {
+            color: keyColor,
+            tolerance
+          });
+          ctx.putImageData(targetImageData, 0, 0);
+        }
+      } else {
+        batchApplyMask(targetImageData, tmplData, alphaThreshold, mode, {
+          color: keyColor,
+          tolerance
+        });
+        ctx.putImageData(targetImageData, 0, 0);
+      }
 
-      ctx.putImageData(targetImageData, 0, 0);
       const maskedDataUrl = off.toDataURL('image/png');
 
       // 释放 CanvasPool
@@ -286,7 +305,7 @@ export class MergeEngine {
    * options: { templateId, targetId, alphaThreshold }
    */
   async applyMutualTransparency(options = {}) {
-    const { templateId = 'template', targetId = 'grid', alphaThreshold = 1 } = options;
+    const { templateId = 'template', targetId = 'grid', alphaThreshold = 1, useWorker = true } = options;
     const templateLayer = this.layerManager.getLayer(templateId);
     const targetLayer = this.layerManager.getLayer(targetId);
     if (!templateLayer || !targetLayer) return;
@@ -313,11 +332,23 @@ export class MergeEngine {
       const d1 = ctx1.getImageData(0, 0, w, h);
       const d2 = ctx2.getImageData(0, 0, w, h);
 
-      // 使用单次调用处理双向透明
-      batchApplyMask(d1, d2, alphaThreshold, 'mutual');
-
-      ctx1.putImageData(d1, 0, 0);
-      ctx2.putImageData(d2, 0, 0);
+      if (useWorker) {
+        try {
+          const worker = getMergeWorker();
+          const result = await worker.applyMutualTransparency(d1, d2, alphaThreshold);
+          ctx1.putImageData(result.template, 0, 0);
+          ctx2.putImageData(result.target, 0, 0);
+        } catch (err) {
+          console.warn('[MergeEngine] worker mutual transparency failed, fallback to main thread', err);
+          batchApplyMask(d1, d2, alphaThreshold, 'mutual');
+          ctx1.putImageData(d1, 0, 0);
+          ctx2.putImageData(d2, 0, 0);
+        }
+      } else {
+        batchApplyMask(d1, d2, alphaThreshold, 'mutual');
+        ctx1.putImageData(d1, 0, 0);
+        ctx2.putImageData(d2, 0, 0);
+      }
 
       const tmplMasked = c1.toDataURL('image/png');
       const tgtMasked = c2.toDataURL('image/png');
@@ -519,7 +550,7 @@ export class MergeEngine {
    * options: { layerId, palette?[[r,g,b]], paletteSize=32, cellSize=2, highlight=0.15, shadow=0.18, directionMode:'sobel'|'fixed', fixedAngleDeg=45, onProgress? }
    */
   async applyBasicStitchEffect(options = {}) {
-    const { layerId = 'grid', palette, paletteSize = 32, cellSize = 2, highlight = 0.15, shadow = 0.18, directionMode = 'sobel', fixedAngleDeg = 45, alphaThreshold = 8, onProgress = null } = options;
+    const { layerId = 'grid', palette, paletteSize = 32, cellSize = 2, highlight = 0.15, shadow = 0.18, directionMode = 'sobel', fixedAngleDeg = 45, alphaThreshold = 8, onProgress = null, useWorker = true } = options;
     const layer = this.layerManager.getLayer(layerId);
     if (!layer) return;
 
@@ -542,6 +573,34 @@ export class MergeEngine {
 
       ctx.drawImage(img, 0, 0);
       let imgData = ctx.getImageData(0, 0, w, h);
+
+      if (useWorker) {
+        try {
+          const worker = getMergeWorker();
+          const resultImageData = await worker.applyStitchEffect(imgData, {
+            palette,
+            paletteSize,
+            cellSize,
+            highlight,
+            shadow,
+            directionMode,
+            fixedAngleDeg,
+            alphaThreshold
+          }, onProgress);
+          octx.putImageData(resultImageData, 0, 0);
+          const resultUrl = out.toDataURL('image/png');
+          pool.release(base);
+          pool.release(out);
+          pool.release(threadCanvas);
+          await this.updateImageOnLayer(layerId, resultUrl, { keepOriginal: true });
+          const updated = this.layerManager.getLayer(layerId);
+          this._afterLayerImageChange(updated);
+          this.eventBus.emit(MergeEvents.STITCH_APPLIED, { layerId, timestamp: Date.now(), type: 'basic' });
+          return resultUrl;
+        } catch (err) {
+          console.warn('[MergeEngine] worker stitch failed, fallback to main thread', err);
+        }
+      }
 
       // 预计算 alpha - 使用指针递增
       const alphaRef = new Uint8ClampedArray(w * h);
