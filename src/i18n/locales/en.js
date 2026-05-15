@@ -363,6 +363,8 @@ export default {
     enterEditDesc: 'Color management / pixel editing',
     enterMerge: 'Merge projects',
     enterMergeDesc: 'Merge projects / preview',
+    enterPhotopea: 'PSD Workbench',
+    enterPhotopeaDesc: 'Open local psv2 / Photopea in a separate window',
     emailAria: 'Show developer email',
     copyright: '© {year} EasyStitch. Jinhua Shuoshi Crafts Co., Ltd. All rights reserved.',
     legalLink: 'Legal notice',
@@ -372,6 +374,19 @@ export default {
     legalP1: 'This software, its UI, workflows, image processing and composition logic, and related documentation and assets (except content imported by users) are original work or duly licensed.',
     legalP2: 'Without permission, no one may copy, distribute, adapt, reverse engineer, or use this software commercially. We reserve the right to pursue infringers.',
     legalMeta: '© {year} EasyStitch. Jinhua Shuoshi Crafts Co., Ltd. All rights reserved.'
+  },
+
+  photopeaWorkbench: {
+    eyebrow: 'psv2 / Photopea',
+    title: 'PSD Workbench',
+    loading: 'Loading',
+    ready: 'Ready',
+    unavailable: 'Unavailable',
+    idle: 'Idle',
+    missingTitle: 'Local psv2 bundle not found',
+    missingDesc: 'Prepare a local Photopea-compatible bundle first. The workbench opens it in a separate window.',
+    refresh: 'Refresh',
+    retry: 'Check again'
   },
 
   merge: {

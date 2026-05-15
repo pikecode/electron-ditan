@@ -24,6 +24,7 @@ if (process.platform === 'darwin') {
 }
 
 let mainWindow
+let photopeaWorkbenchWindow = null
 let photopeaBridgeWindow = null
 let photopeaBridgeEditorSrc = ''
 let photopeaRenderQueue = Promise.resolve()
@@ -77,6 +78,11 @@ app.on('window-all-closed', () => { globalShortcut.unregisterAll(); if (process.
 app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow() })
 app.on('before-quit', () => {
   try {
+    if (photopeaWorkbenchWindow && !photopeaWorkbenchWindow.isDestroyed()) {
+      photopeaWorkbenchWindow.destroy()
+    }
+  } catch (_) {}
+  try {
     if (photopeaBridgeWindow && !photopeaBridgeWindow.isDestroyed()) {
       photopeaBridgeWindow.destroy()
     }
@@ -91,6 +97,7 @@ app.on('before-quit', () => {
       photopeaBridgeServer.close()
     }
   } catch (_) {}
+  photopeaWorkbenchWindow = null
   photopeaBridgeWindow = null
   photopeaBridgeEditorSrc = ''
   photopeaServer = null
@@ -105,6 +112,25 @@ app.on('before-quit', () => {
 // 这些 IPC 仅作为统一入口，直接在渲染进程使用 colorAPI / colorGroupAPI 时可逐步移除
 
 ipcMain.handle('noop', () => ({ ok:true }))
+
+ipcMain.handle('photopea:open-workbench-window', async () => {
+  try {
+    const result = await openPhotopeaWorkbenchWindow()
+    return {
+      ok: true,
+      url: result.url,
+      origin: result.origin,
+      bundleRoot: result.bundleRoot
+    }
+  } catch (error) {
+    const projectRoot = resolveProjectRoot()
+    return {
+      ok: false,
+      error: error?.message || String(error),
+      setupHint: createPhotopeaSetupHint(projectRoot)
+    }
+  }
+})
 
 // 保留项目导出打包逻辑
 const { dialog } = require('electron')
@@ -790,6 +816,98 @@ async function ensurePhotopeaServer(bundleRoot) {
   photopeaServerRoot = scopedServer.normalizedRoot
   photopeaServerOrigin = scopedServer.origin
   return photopeaServerOrigin
+}
+
+async function openPhotopeaWorkbenchWindow() {
+  const projectRoot = resolveProjectRoot()
+  const bundleRoot = resolvePhotopeaBundleRoot(projectRoot)
+  if (!bundleRoot) {
+    throw new Error('photopea-bundle-missing')
+  }
+
+  const origin = await ensurePhotopeaServer(bundleRoot)
+  const editorUrl = buildPhotopeaEditorUrl(origin)
+  if (!editorUrl) {
+    throw new Error('photopea-editor-url-missing')
+  }
+
+  if (photopeaWorkbenchWindow && !photopeaWorkbenchWindow.isDestroyed()) {
+    if (photopeaWorkbenchWindow.isMinimized()) photopeaWorkbenchWindow.restore()
+    photopeaWorkbenchWindow.show()
+    photopeaWorkbenchWindow.focus()
+    return { url: editorUrl, origin, bundleRoot }
+  }
+
+  let forceClosing = false
+  const win = new BrowserWindow({
+    width: 1440,
+    height: 980,
+    minWidth: 1100,
+    minHeight: 760,
+    show: false,
+    title: 'PSD 工作台',
+    backgroundColor: '#121212',
+    autoHideMenuBar: true,
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      sandbox: false,
+      backgroundThrottling: false,
+      webSecurity: false,
+      spellcheck: false
+    }
+  })
+
+  photopeaWorkbenchWindow = win
+  win.removeMenu?.()
+  if (process.platform === 'win32') {
+    win.setMenuBarVisibility(false)
+  }
+
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    try {
+      return new URL(url).origin === origin ? { action: 'allow' } : { action: 'deny' }
+    } catch (_) {
+      return { action: 'deny' }
+    }
+  })
+
+  win.webContents.on('will-navigate', (event, targetUrl) => {
+    try {
+      if (new URL(targetUrl).origin !== origin) event.preventDefault()
+    } catch (_) {
+      event.preventDefault()
+    }
+  })
+  win.webContents.on('will-prevent-unload', (event) => {
+    event.preventDefault()
+  })
+
+  win.once('ready-to-show', () => {
+    if (win.isDestroyed()) return
+    win.show()
+    win.focus()
+  })
+  win.on('close', (event) => {
+    if (forceClosing || win.isDestroyed()) return
+    forceClosing = true
+    event.preventDefault()
+    win.destroy()
+  })
+  win.on('closed', () => {
+    if (photopeaWorkbenchWindow === win) {
+      photopeaWorkbenchWindow = null
+    }
+  })
+  win.webContents.on('render-process-gone', () => {
+    if (!win.isDestroyed()) win.destroy()
+    if (photopeaWorkbenchWindow === win) {
+      photopeaWorkbenchWindow = null
+    }
+  })
+
+  await win.loadURL(editorUrl)
+  return { url: editorUrl, origin, bundleRoot }
 }
 
 async function ensurePhotopeaBridgeServer(projectRoot) {

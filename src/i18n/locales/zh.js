@@ -363,6 +363,8 @@ export default {
     enterEditDesc: '颜色管理 / 像素编辑',
     enterMerge: '进入合图',
     enterMergeDesc: '合并项目 / 预览',
+    enterPhotopea: 'PSD 工作台',
+    enterPhotopeaDesc: '独立窗口打开本地 psv2 / Photopea',
     emailAria: '显示开发者邮箱',
     copyright: '© {year} EasyStitch. 金华市硕诗工艺品有限公司所有。',
     legalLink: '版权所有声明',
@@ -372,6 +374,19 @@ export default {
     legalP1: '本软件及其界面设计、交互流程、图像处理与合成逻辑、相关文档与素材（除用户自行导入的内容外）均为原创成果或已获得合法授权。',
     legalP2: '未经许可，任何单位或个人不得对本软件进行复制、传播、改编、反向工程或用于商业用途。若发现侵权行为，将保留追究法律责任的权利。',
     legalMeta: '© {year} EasyStitch. 金华市硕诗工艺品有限公司所有。'
+  },
+
+  photopeaWorkbench: {
+    eyebrow: 'psv2 / Photopea',
+    title: 'PSD 工作台',
+    loading: '加载中',
+    ready: '已就绪',
+    unavailable: '不可用',
+    idle: '待加载',
+    missingTitle: '未找到本地 psv2 包',
+    missingDesc: '请先准备本地 Photopea 兼容包，工作台会以独立窗口打开它。',
+    refresh: '刷新',
+    retry: '重新检测'
   },
 
   merge: {

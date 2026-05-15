@@ -3,7 +3,9 @@ import vue from '@vitejs/plugin-vue'
 import { resolve } from 'path'
 
 export default defineConfig({
-  plugins: [vue()],
+  plugins: [
+    vue()
+  ],
   root: resolve(__dirname, 'src'),
   publicDir: resolve(__dirname, 'public'), // 确保 opencv.js / brushify.js 被复制
   base: './',

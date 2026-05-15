@@ -50,6 +50,24 @@ function copyBundle(sourceRoot, destinationRoot) {
   })
 }
 
+function patchLocalWorkbenchBundle(destinationRoot) {
+  const readableExtPath = path.join(destinationRoot, 'static', 'js', 'ext源文件.js')
+  const runtimeExtPath = path.join(destinationRoot, 'static', 'js', 'ext.js')
+  const patchedFiles = []
+  if (!fs.existsSync(readableExtPath) || !fs.existsSync(runtimeExtPath)) return patchedFiles
+
+  const redirectGuardPattern = /\n?\(function\(\) \{\s*var _0x1a2b = \["getElementsByTagName", "script", "length", "src", "includes", "href", "location"\];\s*var s = document\[_0x1a2b\[0\]\]\(_0x1a2b\[1\]\);\s*var cs = s\[s\[_0x1a2b\[2\]\] - 1\];\s*var src = cs\[_0x1a2b\[3\]\];\s*if \(!src\[_0x1a2b\[4\]\]\('https:\/\/ps\.ligongmax\.com'\)\) \{\s*window\[_0x1a2b\[6\]\]\[_0x1a2b\[5\]\] = 'https:\/\/ps\.ligongmax\.com'\s*\}\s*\}\)\(\);/
+  const source = fs.readFileSync(readableExtPath, 'utf8')
+  const patched = source.replace(redirectGuardPattern, '\n/* EasyStitch: 本地嵌入时移除 psv2 的外部域名跳转校验。 */')
+  if (patched !== source) {
+    fs.writeFileSync(readableExtPath, patched, 'utf8')
+    fs.writeFileSync(runtimeExtPath, patched, 'utf8')
+    patchedFiles.push('static/js/ext源文件.js', 'static/js/ext.js')
+  }
+
+  return patchedFiles
+}
+
 function main() {
   const sourceRoot = resolveSourceRoot()
   if (!sourceRoot) {
@@ -65,9 +83,13 @@ function main() {
   }
 
   copyBundle(sourceRoot, targetRoot)
+  const patchedFiles = patchLocalWorkbenchBundle(targetRoot)
   console.log(
     `[prepare:photopea] synced Photopea bundle\nsource: ${sourceRoot}\ntarget: ${targetRoot}`
   )
+  if (patchedFiles.length) {
+    console.log(`[prepare:photopea] patched local workbench bundle\nfiles: ${patchedFiles.join(', ')}`)
+  }
 }
 
 main()

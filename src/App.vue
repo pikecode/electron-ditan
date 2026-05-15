@@ -1,7 +1,14 @@
 <template>
   <el-config-provider :locale="elementLocale">
     <div :class="['app-root', { 'full-mode': mode !== 'home', 'mode-edit': mode==='edit', 'mode-merge': mode==='merge' }]">
-      <component :is="viewComponent" @go-edit="enter('edit')" @go-merge="enter('merge')" @go-home="backHome" />
+      <HomeView
+        v-if="mode==='home'"
+        @go-edit="enter('edit')"
+        @go-merge="enter('merge')"
+        @go-photopea="enter('photopea')"
+      />
+      <EditCanvas v-else-if="mode==='edit'" @go-home="backHome" />
+      <MergeCanvas v-else-if="mode==='merge'" @go-home="backHome" />
       <button v-if="mode!=='home'" class="back-btn" @click="backHome" :aria-label="$t('appShell.backHomeAria')">
         〈 {{ $t('appShell.backHome') }}
       </button>
@@ -26,6 +33,20 @@ import MergeCanvas from './components/MergeCanvas.vue'
 import HomeView from './components/HomeView.vue'
 import LanguageSwitcher from "./components/LanguageSwitcher.vue"
 import { useMergeStore } from './composables/useMergeStore.js'
+
+function getIpcRenderer() {
+  try {
+    if (typeof window !== 'undefined' && window?.electron?.ipcRenderer) {
+      return window.electron.ipcRenderer
+    }
+    if (typeof require === 'function') {
+      const { ipcRenderer } = require('electron')
+      return ipcRenderer
+    }
+  } catch (_) {}
+  return null
+}
+
 export default {
   name: 'AppLauncher',
   components:{ HomeView, EditCanvas, MergeCanvas, LanguageSwitcher, ElConfigProvider },
@@ -36,19 +57,35 @@ export default {
     return { elementLocale, resetMergeState }
   },
   data(){ return { mode:'home' } },
-  computed:{
-    viewComponent(){
-      if (this.mode==='home') return HomeView
-      if (this.mode==='edit') return EditCanvas
-      if (this.mode==='merge') return MergeCanvas
-      return HomeView
-    }
-  },
   methods:{
-    enter(type){
+    async enter(type){
+      if (type === 'photopea') {
+        await this.openPhotopeaWindow()
+        return
+      }
       if (type === 'merge') this.resetMergeState()
       console.log('[App] enter', type)
       this.mode = type
+    },
+    async openPhotopeaWindow(){
+      try {
+        const ipcRenderer = getIpcRenderer()
+        if (!ipcRenderer) throw new Error('electron-ipc-unavailable')
+        const result = await ipcRenderer.invoke('photopea:open-workbench-window')
+        if (!result?.ok) {
+          const detail = result?.setupHint ? `\n\n${result.setupHint}` : ''
+          throw new Error(`${result?.error || 'photopea-workbench-open-failed'}${detail}`)
+        }
+      } catch (error) {
+        await ElMessageBox.alert(
+          error?.message || String(error),
+          this.$t('photopeaWorkbench.missingTitle'),
+          {
+            confirmButtonText: this.$t('photopeaWorkbench.retry'),
+            type: 'error'
+          }
+        )
+      }
     },
     async backHome(){
       if (this.mode === 'merge') {
@@ -77,7 +114,7 @@ export default {
 </script>
 
 <style scoped>
-.app-root {min-height:100vh; font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue','PingFang SC',sans-serif; background:linear-gradient(160deg,#f5f5f7 0%,#ffffff 100%); position:relative; overflow:hidden;}
+.app-root {height:100vh; min-height:100vh; font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue','PingFang SC',sans-serif; background:linear-gradient(160deg,#f5f5f7 0%,#ffffff 100%); position:relative; overflow:hidden;}
 .full-mode {background:#fff;}
 .fade-enter-active,.fade-leave-active {transition:opacity .25s ease, transform .25s ease;}
 .fade-enter-from,.fade-leave-to {opacity:0; transform:translateY(6px);} 
