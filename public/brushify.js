@@ -105,6 +105,14 @@ class BrushifyJS {
       // 叠加前：弱化「一格一格」硬边（客户在合图/线性光之前就要虚化方格，不是叠加之后）
       linearLightGridPresoftenEnabled: true,
       linearLightGridPresoftenSigma: 1.25, // 仅模糊 BGR；0 或极小则等效关闭
+      // 叠加前：降低相邻色块的颜色跳变。与 gridPresoften 不同，这一步用更宽的模糊半径但按 mix 回混，
+      // 目标是减少“大色块”观感，而不是把整张图直接糊掉。
+      linearLightColorBlockSmoothEnabled: true,
+      linearLightColorBlockSmoothSigma: 2.2,
+      linearLightColorBlockSmoothMix: 0.35,
+      linearLightColorBlockLightnessMix: 0.10,
+      linearLightColorBlockEdgeProtect: 0.72,
+      linearLightColorBlockBoundaryBoost: 0.32,
       // 仅对暗部做去块，避免阴影区保留明显色块，同时不把高光/边缘整体洗掉
       linearLightShadowDeblockEnabled: false,
       linearLightShadowDeblockSigma: 1.15,
@@ -1194,6 +1202,121 @@ class BrushifyJS {
   }
 
   /**
+   * 线性光叠加之前：在 Lab 空间做边缘感知色块软化。
+   * 色块主要来自相邻单元的色彩跳变，所以重点平滑 a/b 色彩通道；L 亮度只少量回混。
+   * 亮度梯度较强的位置会自动降低混合量，避免真实轮廓被抹掉。
+   * @returns {cv.Mat} 成功时为新的 BGRA（并 delete 入参 bgra）；关闭或失败时返回原 bgra
+   */
+  _smoothColorBlocksBeforeMerge(bgra) {
+    if (this.params.linearLightColorBlockSmoothEnabled === false) return bgra;
+    const sigma = Math.max(0, Math.min(6, Number(this.params.linearLightColorBlockSmoothSigma) || 0));
+    const mix = Math.max(0, Math.min(0.85, Number(this.params.linearLightColorBlockSmoothMix) || 0));
+    const lightMix = Math.max(0, Math.min(0.35, Number(this.params.linearLightColorBlockLightnessMix) || 0));
+    const edgeProtect = Math.max(0, Math.min(1, Number(this.params.linearLightColorBlockEdgeProtect) || 0));
+    const boundaryBoost = Math.max(0, Math.min(0.65, Number(this.params.linearLightColorBlockBoundaryBoost) || 0));
+    if (sigma < 0.08 || mix < 0.01) return bgra;
+
+    const bgr = new cv.Mat();
+    const lab = new cv.Mat();
+    const labBlur = new cv.Mat();
+    let labOut = null;
+    let bgrOut = null;
+    try {
+      cv.cvtColor(bgra, bgr, cv.COLOR_BGRA2BGR);
+      cv.cvtColor(bgr, lab, cv.COLOR_BGR2Lab);
+      cv.GaussianBlur(lab, labBlur, new cv.Size(0, 0), sigma, sigma, cv.BORDER_DEFAULT);
+      const bx = boundaryBoost > 0 ? this._estimateBlockSizeBGR(bgr, 'x') : 1;
+      const by = boundaryBoost > 0 ? this._estimateBlockSizeBGR(bgr, 'y') : 1;
+      const useBlockGuide = bx > 1 || by > 1;
+
+      const rows = bgra.rows;
+      const cols = bgra.cols;
+      labOut = new cv.Mat(rows, cols, cv.CV_8UC3);
+      const ldat = lab.data;
+      const bdat = labBlur.data;
+      const odat = labOut.data;
+      const n = rows * cols;
+      const edgeStart = 4;
+      const edgeEnd = 34;
+      const invEdgeRange = 1 / Math.max(1e-6, edgeEnd - edgeStart);
+
+      for (let y = 0; y < rows; y++) {
+        const ym = y > 0 ? y - 1 : y;
+        const yp = y < rows - 1 ? y + 1 : y;
+        for (let x = 0; x < cols; x++) {
+          const xm = x > 0 ? x - 1 : x;
+          const xp = x < cols - 1 ? x + 1 : x;
+          const i = y * cols + x;
+          const i3 = i * 3;
+          const l = ldat[i3];
+          const gx = Math.abs(l - ldat[(y * cols + xm) * 3]) + Math.abs(l - ldat[(y * cols + xp) * 3]);
+          const gy = Math.abs(l - ldat[(ym * cols + x) * 3]) + Math.abs(l - ldat[(yp * cols + x) * 3]);
+          let edge = (gx + gy) * 0.5;
+          edge = (edge - edgeStart) * invEdgeRange;
+          if (edge <= 0) edge = 0;
+          else if (edge >= 1) edge = 1;
+          else edge = edge * edge * (3 - 2 * edge);
+
+          let blockBoundary = 0;
+          if (useBlockGuide) {
+            if (bx > 1) {
+              const mx = x % bx;
+              const distX = Math.min(mx, bx - mx);
+              blockBoundary = Math.max(blockBoundary, Math.max(0, 1 - distX / Math.max(1, bx * 0.35)));
+            }
+            if (by > 1) {
+              const my = y % by;
+              const distY = Math.min(my, by - my);
+              blockBoundary = Math.max(blockBoundary, Math.max(0, 1 - distY / Math.max(1, by * 0.35)));
+            }
+            blockBoundary = blockBoundary * blockBoundary * (3 - 2 * blockBoundary);
+          }
+
+          const protect = edgeProtect * (1 - blockBoundary * 0.55);
+          const boost = boundaryBoost * blockBoundary;
+          const localMix = Math.min(0.9, (mix + boost) * (1 - protect * edge));
+          const localLightMix = Math.min(0.38, (lightMix + boost * 0.18) * (1 - protect * edge));
+          odat[i3] = Math.round(ldat[i3] * (1 - localLightMix) + bdat[i3] * localLightMix);
+          odat[i3 + 1] = Math.round(ldat[i3 + 1] * (1 - localMix) + bdat[i3 + 1] * localMix);
+          odat[i3 + 2] = Math.round(ldat[i3 + 2] * (1 - localMix) + bdat[i3 + 2] * localMix);
+        }
+      }
+
+      bgrOut = new cv.Mat();
+      cv.cvtColor(labOut, bgrOut, cv.COLOR_Lab2BGR);
+
+      const out = new cv.Mat(rows, cols, cv.CV_8UC4);
+      const outDat = out.data;
+      const bgrDat = bgrOut.data;
+      const adat = bgra.data;
+      for (let i = 0; i < n; i++) {
+        const i3 = i * 3;
+        const i4 = i * 4;
+        outDat[i4] = bgrDat[i3];
+        outDat[i4 + 1] = bgrDat[i3 + 1];
+        outDat[i4 + 2] = bgrDat[i3 + 2];
+        outDat[i4 + 3] = adat[i4 + 3];
+      }
+
+      bgr.delete();
+      lab.delete();
+      labBlur.delete();
+      labOut.delete();
+      bgrOut.delete();
+      bgra.delete();
+      return out;
+    } catch (e) {
+      try { bgr.delete(); } catch (_) {}
+      try { lab.delete(); } catch (_) {}
+      try { labBlur.delete(); } catch (_) {}
+      if (labOut) try { labOut.delete(); } catch (_) {}
+      if (bgrOut) try { bgrOut.delete(); } catch (_) {}
+      console.warn('[Brushify] color block smooth skipped', e);
+      return bgra;
+    }
+  }
+
+  /**
    * 仅在暗部区域做去块模糊，减轻阴影中的方格感，同时尽量保住亮部边缘与纹理。
    * @returns {cv.Mat} 成功时为新的 BGRA（并 delete 入参 bgra）；关闭或失败时返回原 bgra
    */
@@ -1640,6 +1763,7 @@ class BrushifyJS {
       let base = gridSized.clone();
       base = this._deblockUpscaledPixelArtBeforeMerge(base, grid.cols, grid.rows);
       base = this._softenGridBlocksBeforeMerge(base);
+      base = this._smoothColorBlocksBeforeMerge(base);
       base = this._softenShadowBlocksBeforeMerge(base);
 
       effect = templSized.clone();

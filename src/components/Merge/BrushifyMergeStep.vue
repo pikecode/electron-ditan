@@ -1201,6 +1201,12 @@ function applyMergeNeutralParams(instance) {
   instance.params.linearLightBlendInEncodedSpace = true
   instance.params.linearLightGridPresoftenEnabled = usePsdEffectTemplate || !useAtnPsdFlow
   instance.params.linearLightGridPresoftenSigma = usePsdEffectTemplate ? 0.68 : (useAtnPsdFlow ? 0 : 1.05)
+  instance.params.linearLightColorBlockSmoothEnabled = usePsdEffectTemplate || !useAtnPsdFlow
+  instance.params.linearLightColorBlockSmoothSigma = usePsdEffectTemplate ? 1.6 : (useAtnPsdFlow ? 0 : 3.4)
+  instance.params.linearLightColorBlockSmoothMix = usePsdEffectTemplate ? 0.24 : (useAtnPsdFlow ? 0 : 0.68)
+  instance.params.linearLightColorBlockLightnessMix = usePsdEffectTemplate ? 0.06 : (useAtnPsdFlow ? 0 : 0.12)
+  instance.params.linearLightColorBlockEdgeProtect = usePsdEffectTemplate ? 0.82 : 0.58
+  instance.params.linearLightColorBlockBoundaryBoost = usePsdEffectTemplate ? 0.12 : (useAtnPsdFlow ? 0 : 0.38)
   instance.params.linearLightPixelArtDeblockEnabled = true
   instance.params.linearLightPixelArtDeblockMinScale = usePsdEffectTemplate ? 2.5 : 1.35
   instance.params.linearLightShadowDeblockEnabled = usePsdEffectTemplate || !useAtnPsdFlow
@@ -1219,7 +1225,7 @@ function applyMergeNeutralParams(instance) {
   instance.params.linearLightSprayedMix = usePsdEffectTemplate ? 0.48 : (useAtnPsdFlow ? 0.28 : 0)
   instance.params.linearLightPostLift = Number(postLift.value || 0)
   instance.params.linearLightTextureRelief = Math.max(0, Math.min(0.42, Number(textureReliefPct.value || 0) / 100 * 0.42))
-  instance.params.mergePureMicroContrast = usePsdEffectTemplate ? 0 : 4
+  instance.params.mergePureMicroContrast = 0
 }
 
 function applyBrushifyMergeParams() {

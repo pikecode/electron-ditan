@@ -122,6 +122,7 @@ function rendererSmoke(options = {}) {
     instance.params.linearLightCompositeMaxPixels = 36000000
     instance.params.linearLightBlendInEncodedSpace = true
     instance.params.linearLightGridPresoftenEnabled = false
+    instance.params.linearLightColorBlockSmoothEnabled = false
     instance.params.linearLightPixelArtDeblockEnabled = false
     instance.params.linearLightShadowDeblockEnabled = false
     instance.params.linearLightPostLift = 0
@@ -134,6 +135,12 @@ function rendererSmoke(options = {}) {
     instance.params.linearLightBlendInEncodedSpace = true
     instance.params.linearLightGridPresoftenEnabled = true
     instance.params.linearLightGridPresoftenSigma = 1.05
+    instance.params.linearLightColorBlockSmoothEnabled = true
+    instance.params.linearLightColorBlockSmoothSigma = 3.4
+    instance.params.linearLightColorBlockSmoothMix = 0.68
+    instance.params.linearLightColorBlockLightnessMix = 0.12
+    instance.params.linearLightColorBlockEdgeProtect = 0.58
+    instance.params.linearLightColorBlockBoundaryBoost = 0.38
     instance.params.linearLightPixelArtDeblockEnabled = true
     instance.params.linearLightPixelArtDeblockMinScale = 1.35
     instance.params.linearLightShadowDeblockEnabled = true
@@ -143,7 +150,7 @@ function rendererSmoke(options = {}) {
     instance.params.linearLightShadowDeblockMix = 0.52
     instance.params.linearLightPostLift = 3
     instance.params.linearLightTextureRelief = 0.0336
-    instance.params.mergePureMicroContrast = 4
+    instance.params.mergePureMicroContrast = 0
   }
 
   function renderPair(gridCanvas, templateCanvas, configure) {
@@ -203,6 +210,53 @@ function rendererSmoke(options = {}) {
     }
   }
 
+  function colorAt(data, width, x, y) {
+    const i = (y * width + x) * 4
+    return [data[i], data[i + 1], data[i + 2]]
+  }
+
+  function colorDistance(a, b) {
+    const db = a[0] - b[0]
+    const dg = a[1] - b[1]
+    const dr = a[2] - b[2]
+    return Math.sqrt(db * db + dg * dg + dr * dr)
+  }
+
+  function blockColorScore(canvas, block = 8) {
+    const ctx = canvas.getContext('2d', { willReadFrequently: true })
+    const { width, height } = canvas
+    const data = ctx.getImageData(0, 0, width, height).data
+    let neighborSum = 0
+    let neighborCount = 0
+    let innerSum = 0
+    let innerCount = 0
+
+    for (let y = block; y < height - block; y += block) {
+      for (let x = block; x < width - block; x += block) {
+        const cx = x + Math.floor(block / 2)
+        const cy = y + Math.floor(block / 2)
+        const c = colorAt(data, width, cx, cy)
+        neighborSum += colorDistance(c, colorAt(data, width, cx + block, cy))
+        neighborSum += colorDistance(c, colorAt(data, width, cx, cy + block))
+        neighborCount += 2
+
+        innerSum += colorDistance(
+          colorAt(data, width, x + 2, y + 2),
+          colorAt(data, width, Math.min(x + block - 3, width - 1), Math.min(y + block - 3, height - 1))
+        )
+        innerCount += 1
+      }
+    }
+
+    const neighbor = neighborCount ? neighborSum / neighborCount : 0
+    const inner = innerCount ? innerSum / innerCount : 0
+    return {
+      neighbor,
+      inner,
+      ratio: neighbor / Math.max(1e-6, inner)
+    }
+  }
+
   function canvasToDataUrl(canvas) {
     return canvas.toDataURL('image/png')
   }
@@ -214,20 +268,32 @@ function rendererSmoke(options = {}) {
     const optimizedCanvas = renderPair(gridCanvas, templateCanvas, applyOptimizedParams)
     const baseline = seamScore(baselineCanvas)
     const optimized = seamScore(optimizedCanvas)
+    const baselineBlocks = blockColorScore(baselineCanvas)
+    const optimizedBlocks = blockColorScore(optimizedCanvas)
     const reduction = baseline.seam > 0
       ? (baseline.seam - optimized.seam) / baseline.seam
       : 0
     const ratioReduction = baseline.ratio > 0
       ? (baseline.ratio - optimized.ratio) / baseline.ratio
       : 0
-    const passed = reduction >= 0.18 || ratioReduction >= 0.18
+    const blockReduction = baselineBlocks.neighbor > 0
+      ? (baselineBlocks.neighbor - optimizedBlocks.neighbor) / baselineBlocks.neighbor
+      : 0
+    const blockRatioReduction = baselineBlocks.ratio > 0
+      ? (baselineBlocks.ratio - optimizedBlocks.ratio) / baselineBlocks.ratio
+      : 0
+    const passed = (reduction >= 0.18 || ratioReduction >= 0.18) && blockReduction >= 0.12
     return {
       passed,
       metrics: {
         baseline,
         optimized,
         reduction,
-        ratioReduction
+        ratioReduction,
+        baselineBlocks,
+        optimizedBlocks,
+        blockReduction,
+        blockRatioReduction
       },
       images: options.includeImages
         ? {
