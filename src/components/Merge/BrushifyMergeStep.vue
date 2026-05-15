@@ -1200,14 +1200,14 @@ function applyMergeNeutralParams(instance) {
   const usePsdEffectTemplate = isEffectTemplatePsd(selectedTemplate.value)
   instance.params.linearLightBlendInEncodedSpace = true
   instance.params.linearLightGridPresoftenEnabled = usePsdEffectTemplate || !useAtnPsdFlow
-  instance.params.linearLightGridPresoftenSigma = usePsdEffectTemplate ? 0.68 : (useAtnPsdFlow ? 0 : 0.72)
+  instance.params.linearLightGridPresoftenSigma = usePsdEffectTemplate ? 0.68 : (useAtnPsdFlow ? 0 : 1.05)
   instance.params.linearLightPixelArtDeblockEnabled = true
-  instance.params.linearLightPixelArtDeblockMinScale = usePsdEffectTemplate ? 2.5 : 1.8
+  instance.params.linearLightPixelArtDeblockMinScale = usePsdEffectTemplate ? 2.5 : 1.35
   instance.params.linearLightShadowDeblockEnabled = usePsdEffectTemplate || !useAtnPsdFlow
-  instance.params.linearLightShadowDeblockSigma = usePsdEffectTemplate ? 1.15 : 0.95
+  instance.params.linearLightShadowDeblockSigma = usePsdEffectTemplate ? 1.15 : 1.25
   instance.params.linearLightShadowDeblockStart = 0.14
-  instance.params.linearLightShadowDeblockEnd = usePsdEffectTemplate ? 0.44 : 0.38
-  instance.params.linearLightShadowDeblockMix = usePsdEffectTemplate ? 0.56 : 0.34
+  instance.params.linearLightShadowDeblockEnd = usePsdEffectTemplate ? 0.44 : 0.46
+  instance.params.linearLightShadowDeblockMix = usePsdEffectTemplate ? 0.56 : 0.52
   // PSD effect-template 更接近“硬块底图 + 纹理叠加”，放大时保留色块边界，
   // 否则先被 cubic 抹软后再 linearLight，视觉上会发灰、发淡。
   instance.params.linearLightGridUpscaleSmooth = usePsdEffectTemplate ? false : true

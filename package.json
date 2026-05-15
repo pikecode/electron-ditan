@@ -19,7 +19,8 @@
     "dist:win:ia32": "npm run prepare:photopea && npm run build:vue && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win nsis zip --ia32",
     "dist:win:arm64": "npm run prepare:photopea && npm run build:vue && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win nsis zip --arm64",
     "dist:all": "npm run prepare:photopea && npm run build:vue && electron-builder -mwl",
-    "smoke:photopea": "npm run prepare:photopea && electron ./scripts/photopea_render_smoke.js"
+    "smoke:photopea": "npm run prepare:photopea && electron ./scripts/photopea_render_smoke.js",
+    "smoke:merge-effect": "electron ./scripts/merge_effect_smoke.js"
   },
   "author": "Your Name",
   "license": "MIT",
